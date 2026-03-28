@@ -1,0 +1,42 @@
+package sqlite
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/handiism/infinita/internal/domain/entity"
+	"github.com/handiism/infinita/internal/infrastructure/database/sqlite/sqlc"
+)
+
+type BudgetRepository struct {
+	queries *sqlc.Queries
+}
+
+func NewBudgetRepository(queries *sqlc.Queries) *BudgetRepository {
+	return &BudgetRepository{queries: queries}
+}
+
+func (r *BudgetRepository) UpsertBudget(ctx context.Context, categoryID int64, month string, limit int64) error {
+	return r.queries.UpsertBudget(ctx, sqlc.UpsertBudgetParams{CategoryID: categoryID, Month: month, MonthlyLimitMinor: limit})
+}
+
+func (r *BudgetRepository) ListBudgetsByMonth(ctx context.Context, month string) ([]entity.BudgetStatus, error) {
+	rows, err := r.queries.GetBudgetsForMonth(ctx, month)
+	if err != nil {
+		return nil, fmt.Errorf("query budgets: %w", err)
+	}
+	result := make([]entity.BudgetStatus, 0, len(rows))
+	for _, row := range rows {
+		remaining := row.MonthlyLimitMinor - row.SpentMonthToDateMinor
+		result = append(result, entity.BudgetStatus{
+			CategoryName:          row.CategoryName,
+			CategoryKey:           row.CategoryKey,
+			Month:                 row.Month,
+			MonthlyLimitMinor:     row.MonthlyLimitMinor,
+			SpentMonthToDateMinor: row.SpentMonthToDateMinor,
+			RemainingMinor:        remaining,
+			IsOverLimit:           remaining < 0,
+		})
+	}
+	return result, nil
+}

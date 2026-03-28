@@ -179,17 +179,17 @@ Roadmap (post-MVP target):
 - `TRD-CLI-004`: The system must provide commands to set monthly budget per category and show remaining budget and over-limit status.
 - `TRD-CLI-005`: The system must provide commands to render daily summaries with income, expense, and net balance, and monthly summaries with income, expense, net balance, closing balance, and top spending categories.
 - `TRD-CLI-006`: The system must provide settings commands to show active storage mode as `local` for MVP.
-- `TRD-CLI-007`: The system must provide setup/settings command to set optional initial balance; if omitted, initial balance defaults to `0`.
+- `TRD-CLI-007`: The system must provide setup/settings commands to set and reset optional initial balance; if omitted, initial balance defaults to `0`.
 - `TRD-CLI-008`: Transaction listing command must support pagination via `limit` and `offset`, with defaults `limit=50`, `offset=0`, and maximum `limit=500`.
 - `TRD-CLI-009`: CLI process exit codes must be stable: `0` for success, `2` for validation/domain input errors, and `3` for runtime/storage errors.
-- `TRD-CLI-010`: MVP command surface must expose a single canonical initial-balance command under settings (`settings set-initial-balance`), with optional alias only for backward compatibility.
+- `TRD-CLI-010`: MVP command surface must expose canonical initial-balance management commands under settings: `settings set-initial-balance` to set the value explicitly and `settings reset-initial-balance` to reset the persisted value to `0`.
 - `TRD-UX-001`: All help text, success output, and validation/runtime errors must be in English and use a single approved terminology glossary.
 
 ### Backend / Domain
 - `TRD-DOM-001`: Budget computation must calculate remaining amount per category as `monthlyLimitMinor - spentMonthToDateMinor` and mark over-limit when `remainingMinor < 0`.
 - `TRD-DOM-002`: Summary computation must aggregate totals by date bucket (day/month). Category aggregation and deterministic ordering rules for top spending categories apply to monthly summaries, with ordering defined as `amountMinor DESC`, then normalized category key (case-insensitive category name) `ASC` as tie-breaker.
 - `TRD-DOM-003`: Report totals must be bucket-scoped for the requested `daily|monthly` period: `incomeTotalMinor` and `expenseTotalMinor` include only transactions inside that single bucket; `netBalanceMinor` must equal `incomeTotalMinor - expenseTotalMinor` for the same bucket.
-- `TRD-DOM-004`: Daily and monthly bucket boundaries must use `reportTimezone` from settings; default timezone is captured on first run and can be changed only via explicit settings command.
+- `TRD-DOM-004`: Daily and monthly bucket boundaries must use `reportTimezone` from settings; MVP bootstrap seeds the default timezone to `Asia/Jakarta`, and it can be changed only via explicit settings command.
 - `TRD-DOM-005`: Closing balance at period end must be cumulative and use `initialBalanceMinor + cumulativeIncomeToPeriodEndMinor - cumulativeExpenseToPeriodEndMinor`, where cumulative values are from app start through the end of the requested monthly period bucket.
 
 ### Validation
@@ -209,7 +209,7 @@ Roadmap (post-MVP target):
 - `TRD-API-002`: Budget query contract must return `category`, `currencyCode`, `monthlyLimitMinor`, `spentMonthToDateMinor`, `remainingMinor`, and `isOverLimit`.
 - `TRD-API-003`: Report query contract must return `{period, currencyCode, incomeTotalMinor, expenseTotalMinor, netBalanceMinor}` for daily mode, and must additionally return `{closingBalanceMinor, topCategories[]}` for monthly mode.
 - `TRD-API-004`: Settings contract is local CLI-side (non-cloud HTTP) and must return `{storageMode, analyticsOptIn, reportTimezone}` with idempotent update operations.
-- `TRD-API-005`: Initialization contract must return `{initialBalanceMinor, currencyCode, initializedAt}` and support explicit set/reset by user command.
+- `TRD-API-005`: Initialization contract must return `{initialBalanceMinor, currencyCode, initializedAt}` and support explicit set/reset by user command. In MVP, reset semantics mean persisting `initialBalanceMinor = 0` rather than deleting the initialization record.
 
 ### Infrastructure
 - `TRD-INF-001`: Application configuration must define local data directory path and default to a per-user application data location.
@@ -234,13 +234,13 @@ Roadmap (post-MVP target):
 
 ### Security
 - `TRD-SEC-001`: Data files or database artifacts must be created with user-only read/write permissions where supported by OS.
-- `TRD-SEC-002`: The project must document local data handling rules, including data path, permission model, backup guidance, and manual deletion steps.
+- `TRD-SEC-002`: The project must document local data handling rules, including data path, permission model, backup guidance, and manual deletion steps. See [`docs/security/local-data-handling.md`](../security/local-data-handling.md).
 
 ## Non-Functional Requirements
 - `TRD-NFR-001` (Performance): For familiar users, transaction entry flow (command issue to success response) must complete within 15 seconds in benchmark profile `MVP-CLI-BENCH-01`.
 - `TRD-NFR-002` (Reliability): Core CLI scenarios (`add`, `list`, `budget`, `report`) must pass with at least 99% success across a minimum 1,000 automated executions.
 - `TRD-NFR-003` (Scalability): Listing and reporting must remain functionally correct for datasets up to 100,000 local transactions.
-- `TRD-OBS-001` (Observability): No telemetry events are emitted by default; analytics emission must be gated behind explicit opt-in setting.
+- `TRD-OBS-001` (Observability): No telemetry events are emitted by default; analytics emission must be gated behind explicit opt-in setting. Implementation note: consent/settings support is part of MVP command surface, while analytics event emission may be delivered in a later hardening phase.
 - `TRD-NFR-004` (Compliance/Privacy): Analytics payloads, if enabled, must exclude raw financial content (amount, description, categories, transaction text).
 - `TRD-NFR-005` (Mode Transparency): CLI settings output must always show active storage mode as `local` in MVP.
 - `TRD-OBS-002` (Consent Control): Users must be able to review and revoke analytics consent at any time via settings command; revocation must stop new analytics emission immediately.
@@ -251,12 +251,17 @@ Roadmap (post-MVP target):
 ### CLI Command Surface (MVP Canonical)
 - `infinita add --type <income|expense> --amount <decimal> --category <name> --date <YYYY-MM-DD> [--description <text>]`
 - `infinita list [--category <name>] [--limit <n>] [--offset <n>]`
+- `infinita category list`
+- `infinita category create --name <name> [--description <text>]`
 - `infinita budget set --category <name> --amount <decimal> --month <YYYY-MM>`
 - `infinita budget status --month <YYYY-MM>`
 - `infinita report daily --date <YYYY-MM-DD>`
 - `infinita report monthly --month <YYYY-MM>`
 - `infinita settings show`
+- `infinita settings analytics --opt-in <true|false>`
+- `infinita settings report-timezone --timezone <IANA name>`
 - `infinita settings set-initial-balance --amount <decimal>`
+- `infinita settings reset-initial-balance`
 
 CLI execution behavior:
 - `list` command default pagination: `limit=50`, `offset=0`; max `limit=500`.
@@ -469,6 +474,10 @@ The MVP testing strategy follows a three-tier approach aligned with hexagonal ar
 - **Key focus**: CLI surface contracts (TRD-CLI-001 to TRD-CLI-010), exit codes, English output, error formatting.
 
 ### Additional Test Categories
+
+Current implementation note:
+- The automated suite currently covers repository integration tests, service unit tests, and command integration tests.
+- Reliability runs (≥ 1,000 executions), performance benchmarks, and very-large-dataset validation are planned hardening work and may be completed after the baseline MVP feature flows are stabilized.
 
 - Contract tests for internal service responses (`TRD-API-001` to `TRD-API-003`).
 - Contract tests for settings and initialization contracts (`TRD-API-004`, `TRD-API-005`).

@@ -11,6 +11,7 @@ Simple docs structure:
  │   │   ├── prd/
  │   │   └── trd/
  │   ├── adr/
+ │   ├── security/
  │   └── README.md
 ```
 
@@ -37,3 +38,6 @@ Simple docs structure:
 - `/docs/adr/ADR-001-adopt-hexagonal-clean-architecture-go.md` — Hexagonal architecture (Superseded by ADR-002)
 - `/docs/adr/ADR-002-defer-server-separation-to-roadmap.md` — CLI-only MVP scope (Accepted)
 - `/docs/adr/ADR-003-adopt-sqlc-golang-migrate-tiered-testing.md` — sqlc, golang-migrate, tiered testing strategy (Accepted)
+
+## Security
+- `/docs/security/local-data-handling.md` — Local data path, permission model, backup/restore, and deletion guidance

@@ -73,6 +73,8 @@ For the full directory layout, layer responsibilities, and dependency rules, see
 ### Naming
 
 - **Packages**: lowercase, single word, no underscores (e.g., `entity`, `usecase`, `sqlite`).
+  - **Test package exception (Go convention)**: `package <name>_test` is allowed for external/black-box tests.
+  - Use `package <name>` for same-package/white-box tests when access to unexported symbols is needed.
 - **Files**: `snake_case.go` (e.g., `transaction_repository.go`, `budget_service.go`).
 - **Interfaces**: noun or verb+er in `CamelCase` (e.g., `TransactionRepository`, `BudgetCalculator`).
 - **Structs**: `CamelCase` exported; `camelCase` unexported.

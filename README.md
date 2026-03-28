@@ -32,6 +32,7 @@ See the full architecture diagram: [`docs/diagrams/trd/001-trd-system-architectu
 |---|---|
 | Product Requirements (PRD) | [`docs/prd/001-infinita-personal-finance-app.md`](docs/prd/001-infinita-personal-finance-app.md) |
 | Technical Requirements (TRD) | [`docs/trd/001-infinita-personal-finance-app-mvp-cli.md`](docs/trd/001-infinita-personal-finance-app-mvp-cli.md) |
+| Local Data Handling (Security) | [`docs/security/local-data-handling.md`](docs/security/local-data-handling.md) |
 | ADR-002: CLI-only MVP | [`docs/adr/ADR-002-defer-server-separation-to-roadmap.md`](docs/adr/ADR-002-defer-server-separation-to-roadmap.md) |
 | Data Model (ERD) | [`docs/diagrams/trd/001-trd-data-model-erd.mmd`](docs/diagrams/trd/001-trd-data-model-erd.mmd) |
 | Main User Flow | [`docs/diagrams/prd/001-prd-main-flow.mmd`](docs/diagrams/prd/001-prd-main-flow.mmd) |

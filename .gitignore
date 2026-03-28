@@ -1,5 +1,27 @@
 # Agent runtime/config artifacts
 .agents/
+.opencode/
 
 # Temporary files and folders
+.tmp/
 tmp/
+
+# Build output
+bin/
+dist/
+
+# Local runtime data
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+
+# Go test / coverage artifacts
+*.test
+coverage.out
+coverage.html
+
+# Local env overrides
+.env
+.env.*
+!.env.example
