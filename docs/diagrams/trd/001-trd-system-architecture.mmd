@@ -15,12 +15,18 @@ flowchart LR
       ANA[Analytics Module\nOpt-in only]
     end
 
-    subgraph PERSIST["Persistence Layer - Local Only"]
+    %% PORTS sits at the boundary between Application/Domain and Infrastructure.
+    %% Application services depend on these interfaces; Infrastructure implements them.
+    subgraph PORTS["Output Port Interfaces (Application Layer Boundary)"]
       TREPO[(Transaction Repository)]
       CREPO[(Category Repository)]
       BREPO[(Budget Repository)]
       IREPO[(Initial Balance Repository)]
       SREPO[(Settings Repository)]
+    end
+
+    subgraph PERSIST["Persistence Layer - Local Only"]
+      REPO[Repository Implementations\nImplements output port interfaces]
       STORE[(SQLite Local DB\nOn-device)]
     end
 
@@ -42,11 +48,12 @@ flowchart LR
     SET --> SREPO
     SET --> IREPO
 
-    TREPO --> STORE
-    CREPO --> STORE
-    BREPO --> STORE
-    IREPO --> STORE
-    SREPO --> STORE
+    TREPO --> REPO
+    CREPO --> REPO
+    BREPO --> REPO
+    IREPO --> REPO
+    SREPO --> REPO
+    REPO --> STORE
 
     SET -. analyticsOptIn .-> ANA
     ANA -. emits anonymous events only .-> CLI

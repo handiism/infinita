@@ -6,11 +6,11 @@
 - Owner: TBD
 - Reviewers: TBD
 - Status: Draft
-- Version: 0.18
+- Version: 0.19
 - Created date: 2026-03-28
 - Last updated date: 2026-03-28
 - Related PRD: `docs/prd/001-infinita-personal-finance-app.md`
-- Related ADRs: `docs/adr/ADR-002-defer-server-separation-to-roadmap.md`
+- Related ADRs: `docs/adr/ADR-002-defer-server-separation-to-roadmap.md`, `docs/adr/ADR-003-adopt-sqlc-golang-migrate-tiered-testing.md`
 
 ## Context
 This TRD translates PRD-001 into verifiable technical requirements for a CLI-first personal finance MVP focused on fast daily logging, category-based budgeting, simple reporting, optional initial balance, and privacy-first local-only storage.
@@ -62,7 +62,7 @@ Related PRD: `docs/prd/001-infinita-personal-finance-app.md`
 | PRD-NFR-005 | TRD-OBS-001, TRD-OBS-002, TRD-OBS-003 |
 
 Traceability note:
-- `TRD-ARCH-001` to `TRD-ARCH-006` and `TRD-TECH-001` to `TRD-TECH-004` are cross-cutting implementation constraints derived from architecture decisions (ADR) and stack selection. They are intentionally not modeled as one-to-one mappings to a single PRD requirement.
+- `TRD-ARCH-001` to `TRD-ARCH-006` and `TRD-TECH-001` to `TRD-TECH-007` are cross-cutting implementation constraints derived from architecture decisions (ADR) and stack selection. They are intentionally not modeled as one-to-one mappings to a single PRD requirement.
 
 ## Architecture Overview
 The MVP is a CLI application with local-only persistence and clear boundaries:
@@ -97,7 +97,7 @@ Required directory layout for this project:
 ```text
 .
 ├── cmd/
-│   ├── cli/                         # CLI entrypoint
+│   └── cli/                                    # CLI entrypoint
 ├── internal/
 │   ├── domain/
 │   │   ├── entity/
@@ -112,14 +112,35 @@ Required directory layout for this project:
 │   │   ├── dto/
 │   │   └── validation/
 │   ├── transport/
-│   │   ├── cli/                     # CLI handlers/commands/presenter
+│   │   └── cli/                                # CLI handlers/commands/presenter
 │   └── infrastructure/
 │       ├── database/
 │       │   └── sqlite/
+│       │       ├── sqlc/                       # sqlc generated code (committed)
+│       │       │   ├── db.go
+│       │       │   ├── models.go
+│       │       │   ├── querier.go
+│       │       │   └── query.sql.go
+│       │       ├── migrations/                 # golang-migrate files (also sqlc schema input)
+│       │       │   ├── 000001_init_schema.up.sql
+│       │       │   └── 000001_init_schema.down.sql
+│       │       ├── queries/                    # sqlc query definitions
+│       │       │   ├── transaction.sql
+│       │       │   ├── category.sql
+│       │       │   ├── budget.sql
+│       │       │   ├── setting.sql
+│       │       │   └── initial_balance.sql
+│       │       ├── db.go                       # Connection setup, migration runner
+│       │       ├── transaction_repo.go         # Implements output port
+│       │       ├── category_repo.go
+│       │       ├── budget_repo.go
+│       │       ├── setting_repo.go
+│       │       ├── initial_balance_repo.go
+│       │       └── testutil_test.go            # Test helpers (t.TempDir pattern)
 │       ├── config/
 │       ├── observability/
 │       └── analytics/
-├── migrations/
+├── sqlc.yaml                                   # sqlc configuration
 ├── pkg/
 └── docs/
 ```
@@ -127,6 +148,10 @@ Required directory layout for this project:
 Notes:
 - MVP release artifact is CLI-only (`cmd/cli`).
 - Storage for MVP remains local SQLite only.
+- sqlc generated code (`sqlc/`) is committed to version control for build reproducibility.
+- Migration files serve dual purpose: golang-migrate for schema evolution and sqlc schema input for query validation.
+- sqlc query files (`queries/`) contain raw SQL with `-- name:` annotations; running `sqlc generate` produces output in `sqlc/`.
+- Repository implementations wrap sqlc-generated code and map sqlc types to domain types at the infrastructure boundary.
 
 Roadmap (post-MVP target):
 - Add `cmd/server` entrypoint and `internal/transport/server` adapter with the same application use cases and contracts used by CLI.
@@ -190,14 +215,22 @@ Roadmap (post-MVP target):
 - `TRD-INF-001`: Application configuration must define local data directory path and default to a per-user application data location.
 - `TRD-INF-002`: The system must initialize default categories during first-run bootstrap idempotently.
 - `TRD-INF-003`: MVP runtime configuration must enforce local-only persistence and reject non-local storage mode activation.
-- `TRD-INF-004`: Local persistence engine for MVP must use SQLite with foreign-key enforcement enabled and database file stored under per-user application data directory.
+- `TRD-INF-004`: Local persistence engine for MVP must use SQLite with foreign-key enforcement enabled and database file stored under per-user application data directory. Schema migration must use golang-migrate with migrations embedded in the CLI binary. See TRD-TECH-006.
+- `TRD-INF-005`: sqlc-generated code must be committed to version control. The CI pipeline must verify that committed generated code matches `sqlc generate` output to detect stale generated code.
+- `TRD-INF-006`: sqlc configuration (`sqlc.yaml`) must enable `emit_interface` (generates `Querier` interface for testability), `emit_pointers_for_null_types` (cleaner domain type mapping), `emit_empty_slices` (consistent slice returns for empty results), and `omit_unused_structs` (reduce generated code bloat). sqlc schema input must reference the same migration files used by golang-migrate.
 - `TRD-QA-001`: The build/test pipeline must include automated execution of core CLI scenarios (`add`, `list`, `budget`, `report`) and publish pass/fail summary for each run.
+- `TRD-QA-002`: Repository integration tests must use real SQLite databases created in `t.TempDir()` directories with migrations applied per test. No in-memory databases in repository tests.
+- `TRD-QA-003`: Service unit tests must mock output port interfaces only. No database access in service tests. All domain rules and validation logic must have dedicated unit test coverage.
+- `TRD-QA-004`: Command integration tests must execute the compiled CLI binary as a subprocess and assert exit codes (`0`, `2`, `3`) and output content. Tests must not call use-case methods directly.
 
 ### Technology Stack
 - `TRD-TECH-001`: The MVP CLI must be implemented in **Golang**.
-- `TRD-TECH-002`: The project must target a stable Go release line (minimum `go 1.23`) and lock module dependencies via `go.mod`/`go.sum`.
+- `TRD-TECH-002`: The project must target a stable Go release line (minimum `go 1.24`) and lock module dependencies via `go.mod`/`go.sum`.
 - `TRD-TECH-003`: Recommended package layout must keep `cli` adapter separate from domain/application core and persistence packages.
 - `TRD-TECH-004`: Roadmap target is to add separate server entrypoint (`cmd/server`) and transport adapter (`internal/transport/server`) when server exposure is prioritized.
+- `TRD-TECH-005`: SQL-to-Go code generation must use **sqlc** (sqlc.dev). Raw SQL queries are written in `.sql` files with `-- name:` annotations; sqlc generates type-safe Go structs, methods, and an optional `Querier` interface. Generated code must reside in the infrastructure layer and must never be imported by domain or application layers. Repository implementations wrap sqlc-generated code and perform type mapping at the infrastructure boundary. See ADR-003.
+- `TRD-TECH-006`: Database schema migration must use **golang-migrate** (`github.com/golang-migrate/migrate/v4`). Migration files use sequential versioning with up/down pairs. Migrations must be embedded in the CLI binary via `embed.FS` + `iofs` source driver for single-binary distribution. Migrations must run automatically on application startup. See ADR-003.
+- `TRD-TECH-007`: SQLite driver must be `mattn/go-sqlite3` for consistency with golang-migrate's `database/sqlite3` driver. Build requires CGO (C compiler). sqlc generates code against the `database/sql` interface; driver choice is a runtime concern.
 
 ### Security
 - `TRD-SEC-001`: Data files or database artifacts must be created with user-only read/write permissions where supported by OS.
@@ -390,11 +423,14 @@ Normalization and validation:
 - Initial balance allows zero (`>= 0`) and rejects negative values.
 
 ## Dependencies
-- Golang toolchain (`go 1.23` or newer).
+- Golang toolchain (`go 1.24` or newer).
 - Selected Go CLI library (or standard library `flag`) for command parsing and help output.
-- SQLite embedded database engine/runtime.
+- SQLite embedded database engine (`mattn/go-sqlite3`, CGO).
+- sqlc CLI tool (`github.com/sqlc-dev/sqlc`) for SQL-to-Go code generation.
+- golang-migrate (`github.com/golang-migrate/migrate/v4`) for schema migration with `database/sqlite3` and `source/iofs` drivers.
 - Date/time utility with deterministic timezone handling.
 - Test framework supporting CLI integration tests and scenario replay.
+- Mock generation tool for service unit tests (e.g., `gomock` or `testify/mock`).
 
 ## Technical Risks
 - SQLite schema migration/versioning risk as requirements evolve beyond MVP.
@@ -404,13 +440,41 @@ Normalization and validation:
 - Monetary precision risk if any implementation path bypasses integer minor-unit arithmetic and uses floating-point.
 
 ## Testing Strategy
-- Unit tests for validation, budget math, and summary aggregation.
-- Integration tests for CLI command flows and error handling.
+
+The MVP testing strategy follows a three-tier approach aligned with hexagonal architecture layers. Each tier has distinct scope, isolation boundaries, and tooling. See ADR-003 for rationale.
+
+### Tier 1: Repository Integration Tests
+
+- **Scope**: SQL queries, data mapping (sqlc types ↔ domain types), database constraints, migration correctness.
+- **Isolation**: Real SQLite file per test via `t.TempDir()`. Each test gets its own temp directory with a fresh database; migrations run per test.
+- **Location**: `internal/infrastructure/database/sqlite/*_test.go`
+- **Pattern**: Shared test helper (`testutil_test.go`) creates a migrated database and returns `*sql.DB`. Tests call repository methods and assert persisted state.
+- **Parallel-safe**: Each test uses an independent database file; supports `t.Parallel()`.
+- **Note**: SQLite is an embedded, file-based database. It does not require containerized instances for testing. The `t.TempDir()` pattern provides real file-based isolation with zero external dependencies and automatic cleanup.
+
+### Tier 2: Service Unit Tests (Mocked Repositories)
+
+- **Scope**: Business logic, validation rules, budget computation, report aggregation, domain rules.
+- **Isolation**: Mock application output port interfaces (e.g., `TransactionRepository`, `CategoryRepository`, `BudgetRepository`). No database access.
+- **Location**: `internal/application/usecase/*_test.go`
+- **Pattern**: Use generated mocks of output port interfaces. Verify correct orchestration, domain rule enforcement, and error handling. Assert interactions (calls, arguments) on mocks.
+- **Key focus**: Validation logic (TRD-VAL-001 to TRD-VAL-003), budget math (TRD-DOM-001), summary computation (TRD-DOM-002, TRD-DOM-003), closing balance (TRD-DOM-005).
+
+### Tier 3: Command Integration Tests (Real CLI Execution)
+
+- **Scope**: Full CLI command flow — argument parsing, validation, service orchestration, output rendering, exit codes.
+- **Isolation**: Execute CLI binary as a subprocess with real arguments against a real (temporary) database.
+- **Location**: `internal/transport/cli/*_test.go` or `test/integration/`
+- **Pattern**: Build CLI binary once per test session. Each test creates a temp directory with database, executes binary with arguments, asserts exit code (0/2/3 per TRD-CLI-009), stdout content, and stderr content.
+- **Key focus**: CLI surface contracts (TRD-CLI-001 to TRD-CLI-010), exit codes, English output, error formatting.
+
+### Additional Test Categories
+
 - Contract tests for internal service responses (`TRD-API-001` to `TRD-API-003`).
 - Contract tests for settings and initialization contracts (`TRD-API-004`, `TRD-API-005`).
 - Contract tests for error schema (`TRD-VAL-002`) and analytics payload constraints (`TRD-OBS-003`).
 - Performance test scenarios for transaction entry time and report generation.
-- Reliability scenario runner with >= 1,000 executions for core flows.
+- Reliability scenario runner with ≥ 1,000 executions for core flows (`add`, `list`, `budget`, `report`) per `TRD-NFR-002`.
 - Security checks for local permission mode and telemetry-off default behavior.
 
 ## Rollout Plan
@@ -436,4 +500,5 @@ Normalization and validation:
 - `docs/diagrams/trd/001-trd-sequence-monthly-report.mmd`
 - `docs/diagrams/trd/001-trd-data-model-erd.mmd`
 - `docs/adr/ADR-002-defer-server-separation-to-roadmap.md`
+- `docs/adr/ADR-003-adopt-sqlc-golang-migrate-tiered-testing.md`
 - `https://raw.githubusercontent.com/handiism/go-clean-arch-poc/8a94e96666ed9715cabaa46ede768163a86ebe6a/README.md`
