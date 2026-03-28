@@ -49,7 +49,11 @@ func (r *SettingRepository) SetReportTimezone(ctx context.Context, timezone stri
 }
 
 func (r *SettingRepository) SetAnalyticsOptIn(ctx context.Context, optIn bool) error {
-	return r.queries.SetAnalyticsConsent(ctx, optIn)
+	var consent int64
+	if optIn {
+		consent = 1
+	}
+	return r.queries.SetAnalyticsConsent(ctx, consent)
 }
 
 func (r *SettingRepository) GetAnalyticsOptIn(ctx context.Context) (bool, error) {

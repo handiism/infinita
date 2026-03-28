@@ -32,7 +32,7 @@ func (r *CategoryRepository) GetByNormalizedKey(ctx context.Context, key string)
 		ID:            row.ID,
 		Name:          row.Name,
 		NormalizedKey: row.NormalizedKey,
-		Description:   row.Description,
+		Description:   stringValue(row.Description),
 	}, nil
 }
 
@@ -47,14 +47,22 @@ func (r *CategoryRepository) List(ctx context.Context) ([]entity.Category, error
 			ID:            row.ID,
 			Name:          row.Name,
 			NormalizedKey: row.NormalizedKey,
-			Description:   row.Description,
+			Description:   stringValue(row.Description),
 		})
 	}
 	return categories, nil
 }
 
 func (r *CategoryRepository) Create(ctx context.Context, name, normalizedKey, description string) (entity.Category, error) {
-	if err := r.queries.CreateCategory(ctx, name, normalizedKey, description); err != nil {
+	params := sqlc.CreateCategoryParams{
+		Name:          name,
+		NormalizedKey: normalizedKey,
+	}
+	if description != "" {
+		params.Description = &description
+	}
+
+	if err := r.queries.CreateCategory(ctx, params); err != nil {
 		if isUniqueConstraint(err) {
 			return entity.Category{}, domainerror.ErrDuplicateCategory.WithField("name")
 		}

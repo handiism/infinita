@@ -2,7 +2,6 @@ package sqlite
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"time"
 
@@ -36,11 +35,15 @@ func (r *TransactionRepository) Create(ctx context.Context, txn entity.Transacti
 }
 
 func (r *TransactionRepository) List(ctx context.Context, categoryKey *string, limit, offset int) ([]entity.Transaction, error) {
-	var key sql.NullString
+	var key interface{}
 	if categoryKey != nil {
-		key = sql.NullString{String: *categoryKey, Valid: true}
+		key = *categoryKey
 	}
-	rows, err := r.queries.ListTransactions(ctx, key, int32(limit), int32(offset))
+	rows, err := r.queries.ListTransactions(ctx, sqlc.ListTransactionsParams{
+		Column1: key,
+		Limit:   int64(limit),
+		Offset:  int64(offset),
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -51,10 +54,6 @@ func (r *TransactionRepository) List(ctx context.Context, categoryKey *string, l
 			return nil, fmt.Errorf("parse created_at: %w", err)
 		}
 
-		description := ""
-		if row.Description.Valid {
-			description = row.Description.String
-		}
 		result = append(result, entity.Transaction{
 			ID:                   row.ID,
 			Type:                 row.Type,
@@ -63,7 +62,7 @@ func (r *TransactionRepository) List(ctx context.Context, categoryKey *string, l
 			CategoryID:           row.CategoryID,
 			CategoryNameSnapshot: row.CategoryNameSnapshot,
 			Date:                 row.Date,
-			Description:          description,
+			Description:          stringValue(row.Description),
 			CreatedAt:            createdAt,
 		})
 	}
@@ -91,7 +90,15 @@ func (r *TransactionRepository) SumTotalsForDay(ctx context.Context, date string
 	if err != nil {
 		return 0, 0, err
 	}
-	return totals.IncomeTotalMinor, totals.ExpenseTotalMinor, nil
+	incomeTotalMinor, err := sqliteInt64(totals.IncomeTotalMinor)
+	if err != nil {
+		return 0, 0, fmt.Errorf("convert income total for day: %w", err)
+	}
+	expenseTotalMinor, err := sqliteInt64(totals.ExpenseTotalMinor)
+	if err != nil {
+		return 0, 0, fmt.Errorf("convert expense total for day: %w", err)
+	}
+	return incomeTotalMinor, expenseTotalMinor, nil
 }
 
 func (r *TransactionRepository) SumTotalsForMonth(ctx context.Context, month string) (int64, int64, error) {
@@ -99,7 +106,15 @@ func (r *TransactionRepository) SumTotalsForMonth(ctx context.Context, month str
 	if err != nil {
 		return 0, 0, err
 	}
-	return totals.IncomeTotalMinor, totals.ExpenseTotalMinor, nil
+	incomeTotalMinor, err := sqliteInt64(totals.IncomeTotalMinor)
+	if err != nil {
+		return 0, 0, fmt.Errorf("convert income total for month: %w", err)
+	}
+	expenseTotalMinor, err := sqliteInt64(totals.ExpenseTotalMinor)
+	if err != nil {
+		return 0, 0, fmt.Errorf("convert expense total for month: %w", err)
+	}
+	return incomeTotalMinor, expenseTotalMinor, nil
 }
 
 func (r *TransactionRepository) SumCumulativeTotalsUpToDate(ctx context.Context, date string) (int64, int64, error) {
@@ -107,7 +122,15 @@ func (r *TransactionRepository) SumCumulativeTotalsUpToDate(ctx context.Context,
 	if err != nil {
 		return 0, 0, err
 	}
-	return totals.IncomeTotalMinor, totals.ExpenseTotalMinor, nil
+	incomeTotalMinor, err := sqliteInt64(totals.IncomeTotalMinor)
+	if err != nil {
+		return 0, 0, fmt.Errorf("convert cumulative income total: %w", err)
+	}
+	expenseTotalMinor, err := sqliteInt64(totals.ExpenseTotalMinor)
+	if err != nil {
+		return 0, 0, fmt.Errorf("convert cumulative expense total: %w", err)
+	}
+	return incomeTotalMinor, expenseTotalMinor, nil
 }
 
 func (r *TransactionRepository) TopCategoriesForMonth(ctx context.Context, month string) ([]entity.TopSpendingCategory, error) {
@@ -117,7 +140,11 @@ func (r *TransactionRepository) TopCategoriesForMonth(ctx context.Context, month
 	}
 	result := make([]entity.TopSpendingCategory, 0, len(rows))
 	for _, row := range rows {
-		result = append(result, entity.TopSpendingCategory{Category: row.CategoryName, AmountMinor: row.AmountMinor})
+		amountMinor, err := sqliteInt64(row.AmountMinor)
+		if err != nil {
+			return nil, fmt.Errorf("convert top category amount: %w", err)
+		}
+		result = append(result, entity.TopSpendingCategory{Category: row.CategoryName, AmountMinor: amountMinor})
 	}
 	return result, nil
 }

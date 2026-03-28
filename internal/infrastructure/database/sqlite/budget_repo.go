@@ -27,13 +27,18 @@ func (r *BudgetRepository) ListBudgetsByMonth(ctx context.Context, month string)
 	}
 	result := make([]entity.BudgetStatus, 0, len(rows))
 	for _, row := range rows {
-		remaining := row.MonthlyLimitMinor - row.SpentMonthToDateMinor
+		spentMinor, err := sqliteInt64(row.SpentMonthToDateMinor)
+		if err != nil {
+			return nil, fmt.Errorf("convert spent month to date minor: %w", err)
+		}
+
+		remaining := row.MonthlyLimitMinor - spentMinor
 		result = append(result, entity.BudgetStatus{
 			CategoryName:          row.CategoryName,
 			CategoryKey:           row.CategoryKey,
 			Month:                 row.Month,
 			MonthlyLimitMinor:     row.MonthlyLimitMinor,
-			SpentMonthToDateMinor: row.SpentMonthToDateMinor,
+			SpentMonthToDateMinor: spentMinor,
 			RemainingMinor:        remaining,
 			IsOverLimit:           remaining < 0,
 		})
