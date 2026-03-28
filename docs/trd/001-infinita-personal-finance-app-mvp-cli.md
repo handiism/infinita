@@ -6,11 +6,11 @@
 - Owner: TBD
 - Reviewers: TBD
 - Status: Draft
-- Version: 0.16
+- Version: 0.18
 - Created date: 2026-03-28
 - Last updated date: 2026-03-28
 - Related PRD: `docs/prd/001-infinita-personal-finance-app.md`
-- Related ADRs:
+- Related ADRs: `docs/adr/ADR-002-defer-server-separation-to-roadmap.md`
 
 ## Context
 This TRD translates PRD-001 into verifiable technical requirements for a CLI-first personal finance MVP focused on fast daily logging, category-based budgeting, simple reporting, optional initial balance, and privacy-first local-only storage.
@@ -40,6 +40,8 @@ Related PRD: `docs/prd/001-infinita-personal-finance-app.md`
 - Investment/tax/bookkeeping advanced features.
 - AI insights.
 - Transaction edit/delete flows for MVP.
+- Production server transport exposure (HTTP/gRPC) in MVP release.
+- Server package separation/scaffolding (`cmd/server`, `internal/transport/server`) in current MVP implementation; this is deferred to roadmap.
 
 ## Requirements Mapping
 | PRD Requirement | Technical Requirement(s) |
@@ -59,29 +61,75 @@ Related PRD: `docs/prd/001-infinita-personal-finance-app.md`
 | PRD-NFR-004 | TRD-NFR-001 |
 | PRD-NFR-005 | TRD-OBS-001, TRD-OBS-002, TRD-OBS-003 |
 
+Traceability note:
+- `TRD-ARCH-001` to `TRD-ARCH-006` and `TRD-TECH-001` to `TRD-TECH-004` are cross-cutting implementation constraints derived from architecture decisions (ADR) and stack selection. They are intentionally not modeled as one-to-one mappings to a single PRD requirement.
+
 ## Architecture Overview
 The MVP is a CLI application with local-only persistence and clear boundaries:
 
-1. **CLI Layer**
-   - Parses commands and flags.
-   - Renders English help/output/error messages.
-   - Converts input into application requests.
+This project adopts **Hexagonal (Ports & Adapters)** architecture adapted from `go-clean-arch-poc`:
 
-2. **Application/Domain Layer**
-   - Transaction service (create/list/filter).
-   - Category service (default/custom categories).
-   - Budget service (set limits, compute remaining/over-limit status).
-   - Report service (daily/monthly summaries, with top spending categories and closing balance in monthly mode).
-   - Settings service (storage mode, analytics opt-in, and initialization values).
+1. **Domain Layer (Core)**
+   - Domain entities/value objects and domain rules.
+   - No dependency on transport, DB, or framework packages.
 
-3. **Persistence Layer**
-   - Repository interfaces for transactions, categories, budgets, initial balance, and settings.
-   - SQLite local database adapter (MVP runtime, local-only on-device).
+2. **Application Layer (Use Cases + Ports)**
+   - Use-case orchestration for transaction, category, budget, report, and settings flows.
+   - Input/Output ports (interfaces) as stable contracts.
 
-4. **Cross-Cutting**
-   - Validation module.
-   - Time/calendar utility for daily/monthly grouping.
-   - Optional analytics module (disabled unless explicit opt-in).
+3. **Transport Layer (Adapters)**
+   - **CLI adapter** for command parsing and terminal rendering.
+   - **Server adapter** is roadmap-only for future API exposure.
+   - Current MVP implementation uses CLI adapter only.
+
+4. **Infrastructure Layer (Output Port Implementations)**
+   - SQLite repositories and other runtime adapters (config, observability, analytics emitter if enabled).
+   - Implements application output ports.
+
+5. **Dependency Rule**
+   - Dependencies must point inward: `transport -> application -> domain` and `infrastructure -> application/domain`.
+   - Core layers (`domain`, `application`) must not import transport/infrastructure packages.
+
+## Directory Structure (Go Clean Architecture Reference)
+
+Required directory layout for this project:
+
+```text
+.
+├── cmd/
+│   ├── cli/                         # CLI entrypoint
+├── internal/
+│   ├── domain/
+│   │   ├── entity/
+│   │   ├── valueobject/
+│   │   ├── event/
+│   │   └── error/
+│   ├── application/
+│   │   ├── port/
+│   │   │   ├── input/
+│   │   │   └── output/
+│   │   ├── usecase/
+│   │   ├── dto/
+│   │   └── validation/
+│   ├── transport/
+│   │   ├── cli/                     # CLI handlers/commands/presenter
+│   └── infrastructure/
+│       ├── database/
+│       │   └── sqlite/
+│       ├── config/
+│       ├── observability/
+│       └── analytics/
+├── migrations/
+├── pkg/
+└── docs/
+```
+
+Notes:
+- MVP release artifact is CLI-only (`cmd/cli`).
+- Storage for MVP remains local SQLite only.
+
+Roadmap (post-MVP target):
+- Add `cmd/server` entrypoint and `internal/transport/server` adapter with the same application use cases and contracts used by CLI.
 
 ## Technical Diagrams
 - Mermaid source: `docs/diagrams/trd/001-trd-system-architecture.mmd`
@@ -90,6 +138,14 @@ The MVP is a CLI application with local-only persistence and clear boundaries:
 - Mermaid source: `docs/diagrams/trd/001-trd-data-model-erd.mmd`
 
 ## Technical Requirements
+
+### Architecture / Layering
+- `TRD-ARCH-001`: Golang implementation for current MVP must separate modules/packages for `cli` (command adapter) and `application` (usecase + ports), with `domain` as core business rules.
+- `TRD-ARCH-002`: `cli` layer must depend on `application` input ports/interfaces and must not access persistence adapters directly.
+- `TRD-ARCH-003`: Business rules must reside in `domain` + `application` layers, and these layers must not import CLI transport packages.
+- `TRD-ARCH-004`: Server transport/package separation is roadmap-only and not required for current MVP implementation.
+- `TRD-ARCH-005`: Current MVP package layout must follow Hexagonal layering for implemented parts: `domain`, `application` (usecase + ports), `transport` (cli), and `infrastructure` (sqlite/config/observability adapters).
+- `TRD-ARCH-006`: Dependency direction must be enforced so that `domain` and `application` are framework-agnostic and import no transport/infrastructure implementation packages.
 
 ### Frontend (CLI)
 - `TRD-CLI-001`: The system must provide a command to create transactions with required inputs: `type`, `amount`, `category`, `date`; `description` is optional. Parsed amount input must be normalized into `amountMinor` (integer minor units) before persistence using the strict normalization rules defined in this document.
@@ -136,6 +192,12 @@ The MVP is a CLI application with local-only persistence and clear boundaries:
 - `TRD-INF-003`: MVP runtime configuration must enforce local-only persistence and reject non-local storage mode activation.
 - `TRD-INF-004`: Local persistence engine for MVP must use SQLite with foreign-key enforcement enabled and database file stored under per-user application data directory.
 - `TRD-QA-001`: The build/test pipeline must include automated execution of core CLI scenarios (`add`, `list`, `budget`, `report`) and publish pass/fail summary for each run.
+
+### Technology Stack
+- `TRD-TECH-001`: The MVP CLI must be implemented in **Golang**.
+- `TRD-TECH-002`: The project must target a stable Go release line (minimum `go 1.23`) and lock module dependencies via `go.mod`/`go.sum`.
+- `TRD-TECH-003`: Recommended package layout must keep `cli` adapter separate from domain/application core and persistence packages.
+- `TRD-TECH-004`: Roadmap target is to add separate server entrypoint (`cmd/server`) and transport adapter (`internal/transport/server`) when server exposure is prioritized.
 
 ### Security
 - `TRD-SEC-001`: Data files or database artifacts must be created with user-only read/write permissions where supported by OS.
@@ -328,7 +390,8 @@ Normalization and validation:
 - Initial balance allows zero (`>= 0`) and rejects negative values.
 
 ## Dependencies
-- Selected CLI framework/runtime.
+- Golang toolchain (`go 1.23` or newer).
+- Selected Go CLI library (or standard library `flag`) for command parsing and help output.
 - SQLite embedded database engine/runtime.
 - Date/time utility with deterministic timezone handling.
 - Test framework supporting CLI integration tests and scenario replay.
@@ -372,3 +435,5 @@ Normalization and validation:
 - `docs/diagrams/trd/001-trd-sequence-add-transaction.mmd`
 - `docs/diagrams/trd/001-trd-sequence-monthly-report.mmd`
 - `docs/diagrams/trd/001-trd-data-model-erd.mmd`
+- `docs/adr/ADR-002-defer-server-separation-to-roadmap.md`
+- `https://raw.githubusercontent.com/handiism/go-clean-arch-poc/8a94e96666ed9715cabaa46ede768163a86ebe6a/README.md`

@@ -6,11 +6,13 @@
 - Owner:
 - Reviewers:
 - Status: Draft
-- Version: 0.7
+- Version: 0.8
 - Created date: 2026-03-28
 - Last updated date: 2026-03-28
 - Related Documents:
   - `docs/prd/README.md`
+  - `docs/trd/001-infinita-personal-finance-app-mvp-cli.md`
+  - `docs/adr/ADR-002-defer-server-separation-to-roadmap.md`
 
 ## Problem Statement
 Many individuals struggle to consistently track income, expenses, budgets, and financial summaries because existing tools are either too complex or not private enough.
@@ -30,6 +32,7 @@ This matters now because the MVP needs a simple, private, English-first workflow
 - Investment, tax, or advanced bookkeeping features.
 - AI-based spending insights in MVP.
 - GUI web or mobile dashboard in MVP.
+- Server transport/API exposure in MVP.
 
 ## Target Users / Personas
 - **General individual users**: want to start tracking personal finances without complex accounting workflows.
@@ -71,6 +74,7 @@ This matters now because the MVP needs a simple, private, English-first workflow
 - Investment, tax, or advanced bookkeeping features.
 - AI-based spending insights in MVP.
 - GUI web or mobile dashboard in MVP.
+- Server transport/API exposure in MVP.
 
 ## Functional Requirements
 - `PRD-FR-001`: Users can add income transactions through the CLI.
@@ -161,6 +165,7 @@ This matters now because the MVP needs a simple, private, English-first workflow
 - Expanded transaction filtering and search
 - Logging reminders
 - Local backup and restore
+- Server/API capability as a roadmap architecture milestone
 
 **v2.0**
 - Cross-device sync
