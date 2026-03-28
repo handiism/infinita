@@ -1,1 +1,5 @@
+# Agent runtime/config artifacts
 .agents/
+
+# Temporary files and folders
+tmp/
