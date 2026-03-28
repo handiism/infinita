@@ -1,0 +1,19 @@
+flowchart TD
+    A([Start]) --> B[Run setup command]
+    B --> C{Initial balance provided?}
+    C -->|Yes| D[Store initial balance]
+    C -->|No| E[Set initial balance = 0]
+    D --> F[Show storage mode as local in settings]
+    E --> F
+    F --> G[Persist data on-device]
+    G --> M[Add income or expense transaction]
+    M --> N[Validate type, amount, category, date]
+    N --> O{Valid input?}
+    O -->|No| P[Show validation error in English]
+    O -->|Yes| Q[Save transaction]
+    P --> M
+    Q --> R[Update budget usage per category]
+    R --> S[Check remaining budget and over-limit warning]
+    S --> T[Render list and filters]
+    T --> U[Render daily/monthly summary]
+    U --> V([End])
