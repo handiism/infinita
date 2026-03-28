@@ -1,0 +1,28 @@
+sequenceDiagram
+    actor User
+    participant CLI as CLI Command Parser
+    participant VAL as Validation Module
+    participant CAT as Category Service/Repo
+    participant TX as Transaction Service
+    participant TREPO as Transaction Repository
+    participant STORE as Local Storage
+
+    User->>CLI: add --type expense --amount "10000" --category food --date 2026-03-28
+    CLI->>VAL: Validate required fields and amount/token rules
+    VAL-->>CLI: Valid
+
+    CLI->>CAT: Verify category exists (default/custom)
+    CAT-->>CLI: Category found
+
+    CLI->>TX: Create transaction request (normalize amount to amountMinor)
+    TX->>TREPO: Save transaction entity
+    TREPO->>STORE: Persist local-only data
+    STORE-->>TREPO: Saved
+    TREPO-->>TX: Transaction ID + metadata
+    TX-->>CLI: Success response
+    CLI-->>User: English confirmation output
+
+    alt Invalid input
+        VAL-->>CLI: {code, message, field?, hint?}
+        CLI-->>User: Show structured error in English
+    end

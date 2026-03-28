@@ -1,0 +1,52 @@
+flowchart LR
+    U[User] --> CLI[CLI Layer\nCommands: add/list/budget/report/settings]
+
+    subgraph APP["Application and Domain Layer"]
+      TX[Transaction Service]
+      CAT[Category Service]
+      BUD[Budget Service]
+      REP[Report Service]
+      SET[Settings Service]
+    end
+
+    subgraph CROSS["Cross-Cutting Modules"]
+      VAL[Validation Module]
+      TIME[Time and Timezone Utility]
+      ANA[Analytics Module\nOpt-in only]
+    end
+
+    subgraph PERSIST["Persistence Layer - Local Only"]
+      TREPO[(Transaction Repository)]
+      CREPO[(Category Repository)]
+      BREPO[(Budget Repository)]
+      IREPO[(Initial Balance Repository)]
+      SREPO[(Settings Repository)]
+      STORE[(SQLite Local DB\nOn-device)]
+    end
+
+    CLI --> VAL
+    CLI --> TX
+    CLI --> CAT
+    CLI --> BUD
+    CLI --> REP
+    CLI --> SET
+
+    REP --> TIME
+    REP --> TREPO
+    REP --> IREPO
+    BUD --> TREPO
+    BUD --> BREPO
+    TX --> TREPO
+    TX --> CREPO
+    CAT --> CREPO
+    SET --> SREPO
+    SET --> IREPO
+
+    TREPO --> STORE
+    CREPO --> STORE
+    BREPO --> STORE
+    IREPO --> STORE
+    SREPO --> STORE
+
+    SET -. analyticsOptIn .-> ANA
+    ANA -. emits anonymous events only .-> CLI

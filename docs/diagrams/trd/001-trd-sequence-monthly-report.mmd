@@ -1,0 +1,28 @@
+sequenceDiagram
+    actor User
+    participant CLI as CLI Command Parser
+    participant SET as Settings Service
+    participant REP as Report Service
+    participant TREPO as Transaction Repository
+    participant IREPO as Initial Balance Repository
+
+    User->>CLI: report monthly --month 2026-03
+    CLI->>SET: Get reportTimezone
+    SET-->>CLI: Asia/Jakarta (example)
+
+    CLI->>REP: Build monthly report request(period, month, timezone)
+    REP->>TREPO: Load transactions in month bucket (for period totals)
+    TREPO-->>REP: monthTransactions
+
+    REP->>TREPO: Load transactions up to month end (for closing balance)
+    TREPO-->>REP: cumulativeTransactions
+
+    REP->>IREPO: Get initialBalanceMinor
+    IREPO-->>REP: initialBalanceMinor
+
+    REP->>REP: Compute incomeTotalMinor/expenseTotalMinor/netBalanceMinor (month bucket)
+    REP->>REP: Compute closingBalanceMinor (cumulative to month end)
+    REP->>REP: Rank topCategories by amountMinor DESC, normalized key ASC
+
+    REP-->>CLI: Monthly report contract
+    CLI-->>User: Render English monthly summary

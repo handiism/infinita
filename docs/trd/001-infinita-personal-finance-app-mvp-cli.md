@@ -3,10 +3,10 @@
 ## Metadata
 - Document ID: TRD-001
 - Title: Infinita Personal Finance App (MVP CLI)
-- Owner:
-- Reviewers:
+- Owner: TBD
+- Reviewers: TBD
 - Status: Draft
-- Version: 0.5
+- Version: 0.16
 - Created date: 2026-03-28
 - Last updated date: 2026-03-28
 - Related PRD: `docs/prd/001-infinita-personal-finance-app.md`
@@ -50,9 +50,9 @@ Related PRD: `docs/prd/001-infinita-personal-finance-app.md`
 | PRD-FR-008, PRD-FR-009 | TRD-CLI-004, TRD-DOM-001, TRD-API-002 |
 | PRD-FR-010, PRD-FR-011 | TRD-CLI-005, TRD-DOM-002, TRD-API-003 |
 | PRD-FR-012 | TRD-UX-001 |
-| PRD-FR-013, PRD-FR-016 | TRD-CLI-006, TRD-DATA-003, TRD-INF-003, TRD-API-004 |
+| PRD-FR-013, PRD-FR-016 | TRD-CLI-006, TRD-DATA-003, TRD-INF-003, TRD-INF-004, TRD-API-004 |
 | PRD-FR-014 | TRD-DATA-005 |
-| PRD-FR-015 | TRD-CLI-007, TRD-DOM-003, TRD-DOM-005, TRD-DATA-004, TRD-API-005 |
+| PRD-FR-015 | TRD-CLI-007, TRD-DOM-005, TRD-DATA-004, TRD-API-005 |
 | PRD-NFR-001 | TRD-VAL-001 |
 | PRD-NFR-002 | TRD-SEC-001, TRD-SEC-002 |
 | PRD-NFR-003 | TRD-QA-001 |
@@ -76,45 +76,55 @@ The MVP is a CLI application with local-only persistence and clear boundaries:
 
 3. **Persistence Layer**
    - Repository interfaces for transactions, categories, budgets, initial balance, and settings.
-   - Local storage adapter (MVP runtime).
+   - SQLite local database adapter (MVP runtime, local-only on-device).
 
 4. **Cross-Cutting**
    - Validation module.
    - Time/calendar utility for daily/monthly grouping.
    - Optional analytics module (disabled unless explicit opt-in).
 
+## Technical Diagrams
+- Mermaid source: `docs/diagrams/trd/001-trd-system-architecture.mmd`
+- Mermaid source: `docs/diagrams/trd/001-trd-sequence-add-transaction.mmd`
+- Mermaid source: `docs/diagrams/trd/001-trd-sequence-monthly-report.mmd`
+- Mermaid source: `docs/diagrams/trd/001-trd-data-model-erd.mmd`
+
 ## Technical Requirements
 
 ### Frontend (CLI)
-- `TRD-CLI-001`: The system must provide a command to create transactions with required inputs: `type`, `amount`, `category`, `date`; `description` is optional. Parsed amount input must be normalized into `amountMinor` before persistence using the strict normalization rules defined in this document (MVP fixed-currency behavior).
+- `TRD-CLI-001`: The system must provide a command to create transactions with required inputs: `type`, `amount`, `category`, `date`; `description` is optional. Parsed amount input must be normalized into `amountMinor` (integer minor units) before persistence using the strict normalization rules defined in this document.
 - `TRD-CLI-002`: The system must provide commands to list default categories and create custom categories.
 - `TRD-CLI-003`: The system must provide commands to list transactions and filter by category.
 - `TRD-CLI-004`: The system must provide commands to set monthly budget per category and show remaining budget and over-limit status.
 - `TRD-CLI-005`: The system must provide commands to render daily summaries with income, expense, and net balance, and monthly summaries with income, expense, net balance, closing balance, and top spending categories.
 - `TRD-CLI-006`: The system must provide settings commands to show active storage mode as `local` for MVP.
 - `TRD-CLI-007`: The system must provide setup/settings command to set optional initial balance; if omitted, initial balance defaults to `0`.
+- `TRD-CLI-008`: Transaction listing command must support pagination via `limit` and `offset`, with defaults `limit=50`, `offset=0`, and maximum `limit=500`.
+- `TRD-CLI-009`: CLI process exit codes must be stable: `0` for success, `2` for validation/domain input errors, and `3` for runtime/storage errors.
+- `TRD-CLI-010`: MVP command surface must expose a single canonical initial-balance command under settings (`settings set-initial-balance`), with optional alias only for backward compatibility.
 - `TRD-UX-001`: All help text, success output, and validation/runtime errors must be in English and use a single approved terminology glossary.
 
 ### Backend / Domain
-- `TRD-DOM-001`: Budget computation must calculate remaining amount per category as `monthlyLimit - monthToDateExpense` and mark over-limit when remaining `< 0`.
+- `TRD-DOM-001`: Budget computation must calculate remaining amount per category as `monthlyLimitMinor - spentMonthToDateMinor` and mark over-limit when `remainingMinor < 0`.
 - `TRD-DOM-002`: Summary computation must aggregate totals by date bucket (day/month). Category aggregation and deterministic ordering rules for top spending categories apply to monthly summaries, with ordering defined as `amountMinor DESC`, then normalized category key (case-insensitive category name) `ASC` as tie-breaker.
 - `TRD-DOM-003`: Report totals must be bucket-scoped for the requested `daily|monthly` period: `incomeTotalMinor` and `expenseTotalMinor` include only transactions inside that single bucket; `netBalanceMinor` must equal `incomeTotalMinor - expenseTotalMinor` for the same bucket.
-- `TRD-DOM-005`: Closing balance at period end must be cumulative and use `initialBalanceMinor + cumulativeIncomeToPeriodEndMinor - cumulativeExpenseToPeriodEndMinor`, where cumulative values are from app start through the end of the requested monthly period bucket.
 - `TRD-DOM-004`: Daily and monthly bucket boundaries must use `reportTimezone` from settings; default timezone is captured on first run and can be changed only via explicit settings command.
+- `TRD-DOM-005`: Closing balance at period end must be cumulative and use `initialBalanceMinor + cumulativeIncomeToPeriodEndMinor - cumulativeExpenseToPeriodEndMinor`, where cumulative values are from app start through the end of the requested monthly period bucket.
 
 ### Validation
-- `TRD-VAL-001`: Transaction validation must reject requests where `amountMinor <= 0`, invalid `type`, invalid date format, or unknown category, and must return a structured English error message.
+- `TRD-VAL-001`: Transaction validation must reject requests where `amount <= 0`, invalid decimal token format, more than 2 fractional digits, invalid `type`, invalid date format, or unknown category, and must return a structured English error message. Valid inputs must be converted to integer minor units (`amountMinor`) with exact conversion and no implicit rounding.
 - `TRD-VAL-002`: Validation and domain errors must follow `{code, message, field?, hint?}` with stable error codes including `INVALID_AMOUNT`, `INVALID_DATE`, `UNKNOWN_CATEGORY`, `INVALID_TYPE`, and `STORAGE_MODE_UNAVAILABLE`.
+- `TRD-VAL-003`: All monetary CLI inputs (`add --amount`, `budget set --amount`, `settings set-initial-balance --amount`) must use the same decimal-token validation and exact normalization rules to minor units; implicit rounding is forbidden.
 
 ### Data
 - `TRD-DATA-001`: Transactions must be persisted with fields: `id`, `type`, `amountMinor`, `currencyCode`, `categoryId`, `categoryNameSnapshot?`, `date`, `description?`, `createdAt`.
 - `TRD-DATA-002`: Categories must support seeded defaults and user-created custom values, with uniqueness enforced case-insensitively using a normalized category key.
 - `TRD-DATA-003`: Financial data in MVP must be persisted locally on-device only.
-- `TRD-DATA-004`: Initial balance must be stored as `initialBalanceMinor` with `currencyCode` and audit timestamp.
+- `TRD-DATA-004`: Initial balance must be stored as `initialBalanceMinor` (integer minor units) with `currencyCode` and audit timestamp.
 - `TRD-DATA-005`: The MVP must not implement bank integration data models or bank synchronization connectors.
 
 ### API / Service Contracts (Internal)
-- `TRD-API-001`: Transaction query contract must support category filter and stable sort by date (desc), then creation timestamp (desc).
+- `TRD-API-001`: Transaction query contract must support category filter, pagination (`limit`, `offset`), and stable sort by date (desc), then creation timestamp (desc).
 - `TRD-API-002`: Budget query contract must return `category`, `currencyCode`, `monthlyLimitMinor`, `spentMonthToDateMinor`, `remainingMinor`, and `isOverLimit`.
 - `TRD-API-003`: Report query contract must return `{period, currencyCode, incomeTotalMinor, expenseTotalMinor, netBalanceMinor}` for daily mode, and must additionally return `{closingBalanceMinor, topCategories[]}` for monthly mode.
 - `TRD-API-004`: Settings contract is local CLI-side (non-cloud HTTP) and must return `{storageMode, analyticsOptIn, reportTimezone}` with idempotent update operations.
@@ -124,6 +134,7 @@ The MVP is a CLI application with local-only persistence and clear boundaries:
 - `TRD-INF-001`: Application configuration must define local data directory path and default to a per-user application data location.
 - `TRD-INF-002`: The system must initialize default categories during first-run bootstrap idempotently.
 - `TRD-INF-003`: MVP runtime configuration must enforce local-only persistence and reject non-local storage mode activation.
+- `TRD-INF-004`: Local persistence engine for MVP must use SQLite with foreign-key enforcement enabled and database file stored under per-user application data directory.
 - `TRD-QA-001`: The build/test pipeline must include automated execution of core CLI scenarios (`add`, `list`, `budget`, `report`) and publish pass/fail summary for each run.
 
 ### Security
@@ -142,11 +153,39 @@ The MVP is a CLI application with local-only persistence and clear boundaries:
 
 ## API / Data Contracts
 
+### CLI Command Surface (MVP Canonical)
+- `infinita add --type <income|expense> --amount <decimal> --category <name> --date <YYYY-MM-DD> [--description <text>]`
+- `infinita list [--category <name>] [--limit <n>] [--offset <n>]`
+- `infinita budget set --category <name> --amount <decimal> --month <YYYY-MM>`
+- `infinita budget status --month <YYYY-MM>`
+- `infinita report daily --date <YYYY-MM-DD>`
+- `infinita report monthly --month <YYYY-MM>`
+- `infinita settings show`
+- `infinita settings set-initial-balance --amount <decimal>`
+
+CLI execution behavior:
+- `list` command default pagination: `limit=50`, `offset=0`; max `limit=500`.
+- Exit codes are fixed: `0` success, `2` validation/domain input error, `3` runtime/storage error.
+- All CLI commands that accept monetary input must normalize using one shared parser/normalizer function before calling domain services.
+
+### Monetary Input Normalization (Shared)
+Shared monetary parsing/normalization rules apply to all CLI amount inputs:
+- `add --amount`
+- `budget set --amount`
+- `settings set-initial-balance --amount`
+
+Rules:
+- Input token must be a numeric decimal token (digits, optional single `.`, surrounding spaces trimmed by parser).
+- Max fractional scale is `2`; values with scale `> 2` must be rejected with `INVALID_AMOUNT`.
+- Value must be `> 0` for transaction and budget inputs; initial balance may be `>= 0`.
+- Thousand separators and locale-formatted tokens are rejected unless explicitly normalized into valid decimal token first.
+- Exact conversion only: `amountMinor = amount * 100`; no floating-point conversion and no implicit rounding.
+
 ### Transaction Create Contract (CLI Input)
 ```json
 {
   "type": "income|expense",
-  "amount": 10000,
+  "amount": "10000",
   "currencyCode": "IDR",
   "category": "food",
   "date": "YYYY-MM-DD",
@@ -155,24 +194,26 @@ The MVP is a CLI application with local-only persistence and clear boundaries:
 ```
 
 Boundary rule:
-- CLI must accept `amount` as user-entered monetary input and normalize it into `amountMinor` exactly once before calling internal/domain transaction-create service.
-- MVP currency scope is fixed to `IDR` only, with fixed minor-unit scale `0` (no fractional currency unit).
-- Accepted `amount` format is whole-number only (digits, optional leading/trailing spaces trimmed by parser).
-- Decimal input (for example `100.5`) must be rejected with `INVALID_AMOUNT`; it must not be rounded.
-- Thousand separators and locale-formatted number inputs must be rejected unless they are explicitly normalized by parser into a valid whole-number token first.
+- CLI must accept `amount` as user-entered monetary input and normalize it exactly once before calling internal/domain transaction-create service.
+- Monetary values must use integer minor units end-to-end for storage and arithmetic (`INTEGER` in SQLite), not floating-point.
+- Normalization rule: `amountMinor = amount * 100` with exact decimal parsing; conversion must fail with `INVALID_AMOUNT` if exact conversion is not possible under max scale `2`.
+- MVP currency output remains fixed to `IDR`, and fractional scale up to 2 digits is intentionally allowed for internal consistency and forward-compatible monetary handling.
+- Accepted `amount` format is numeric decimal token (digits, optional one decimal separator `.`, optional leading/trailing spaces trimmed by parser).
+- Values with more than 2 fractional digits must be rejected with `INVALID_AMOUNT`; they must not be rounded implicitly.
+- Thousand separators and locale-formatted number inputs must be rejected unless they are explicitly normalized by parser into a valid decimal token first.
 
 Validation rules (CLI input):
 - `amount > 0`
-- `amount` must be a valid whole-number token for MVP IDR fixed-scale rules (no decimal fraction)
+- `amount` must be a valid decimal token with max scale `2`
 - `type` must be one of `income`, `expense`
-- `date` must be valid ISO date
+- `date` must be valid ISO date (`YYYY-MM-DD`)
 - `category` must exist in default/custom category set
 
 ### Transaction Create Contract (Internal Normalized)
 ```json
 {
   "type": "income|expense",
-  "amountMinor": 10000,
+  "amountMinor": 1000000,
   "currencyCode": "IDR",
   "category": "food",
   "date": "YYYY-MM-DD",
@@ -191,10 +232,33 @@ Validation rules (internal normalized):
 {
   "category": "food",
   "currencyCode": "IDR",
-  "monthlyLimitMinor": 2000000,
-  "spentMonthToDateMinor": 1500000,
-  "remainingMinor": 500000,
+  "monthlyLimitMinor": 200000000,
+  "spentMonthToDateMinor": 150000000,
+  "remainingMinor": 50000000,
   "isOverLimit": false
+}
+```
+
+### Budget Set Contract (CLI Input)
+```json
+{
+  "category": "food",
+  "amount": "2000000.00",
+  "month": "YYYY-MM"
+}
+```
+
+Normalization and validation:
+- `amount` must follow shared monetary normalization rules and be converted to `monthlyLimitMinor`.
+- `category` must exist in default/custom category set.
+- `month` must be valid ISO month (`YYYY-MM`).
+
+### Budget Set Contract (Internal Normalized)
+```json
+{
+  "category": "food",
+  "monthlyLimitMinor": 200000000,
+  "month": "YYYY-MM"
 }
 ```
 
@@ -205,9 +269,9 @@ Daily report:
 {
   "period": "daily",
   "currencyCode": "IDR",
-  "incomeTotalMinor": 500000,
-  "expenseTotalMinor": 320000,
-  "netBalanceMinor": 180000
+  "incomeTotalMinor": 50000000,
+  "expenseTotalMinor": 32000000,
+  "netBalanceMinor": 18000000
 }
 ```
 
@@ -216,13 +280,13 @@ Monthly report:
 {
   "period": "monthly",
   "currencyCode": "IDR",
-  "incomeTotalMinor": 500000,
-  "expenseTotalMinor": 320000,
-  "netBalanceMinor": 180000,
-  "closingBalanceMinor": 2180000,
+  "incomeTotalMinor": 50000000,
+  "expenseTotalMinor": 32000000,
+  "netBalanceMinor": 18000000,
+  "closingBalanceMinor": 218000000,
   "topCategories": [
-    { "category": "food", "amountMinor": 120000 },
-    { "category": "transport", "amountMinor": 60000 }
+    { "category": "food", "amountMinor": 12000000 },
+    { "category": "transport", "amountMinor": 6000000 }
   ]
 }
 ```
@@ -252,18 +316,29 @@ Report field semantics:
 }
 ```
 
+### Initial Balance Set Contract (CLI Input)
+```json
+{
+  "amount": "500000.00"
+}
+```
+
+Normalization and validation:
+- `amount` must follow shared monetary normalization rules and be converted to `initialBalanceMinor`.
+- Initial balance allows zero (`>= 0`) and rejects negative values.
+
 ## Dependencies
 - Selected CLI framework/runtime.
-- Local storage mechanism (structured file or embedded DB).
+- SQLite embedded database engine/runtime.
 - Date/time utility with deterministic timezone handling.
 - Test framework supporting CLI integration tests and scenario replay.
 
 ## Technical Risks
-- Storage format change risk if MVP starts with files and later migrates to DB.
+- SQLite schema migration/versioning risk as requirements evolve beyond MVP.
 - Timezone/date-boundary risk for daily and monthly aggregation.
 - Category normalization risk (case/whitespace mismatches) affecting filter and budget accuracy.
 - Permission portability risk across operating systems.
-- Monetary precision risk if minor-unit storage is violated in implementation.
+- Monetary precision risk if any implementation path bypasses integer minor-unit arithmetic and uses floating-point.
 
 ## Testing Strategy
 - Unit tests for validation, budget math, and summary aggregation.
@@ -287,10 +362,13 @@ Report field semantics:
 - Provide migration rollback script/process if schema migration is introduced.
 
 ## Open Questions
-- Which local storage approach is final for MVP: structured files, encrypted files, or local embedded DB?
 - Should custom categories be creatable implicitly during `add` command or only via explicit category command?
 - Should category and date filtering be expanded beyond current PRD MVP scope in initial implementation?
 
 ## References
 - `docs/prd/001-infinita-personal-finance-app.md`
 - `docs/trd/README.md`
+- `docs/diagrams/trd/001-trd-system-architecture.mmd`
+- `docs/diagrams/trd/001-trd-sequence-add-transaction.mmd`
+- `docs/diagrams/trd/001-trd-sequence-monthly-report.mmd`
+- `docs/diagrams/trd/001-trd-data-model-erd.mmd`

@@ -1,0 +1,47 @@
+erDiagram
+    setting ||--|| initial_balance : configures
+    category ||--o{ finance_transaction : classified_by
+    category ||--o{ budget : has_limit
+
+    setting {
+        string storage_mode
+        boolean analytics_opt_in
+        string report_timezone
+        datetime updated_at
+    }
+
+    initial_balance {
+        string id PK
+        integer initial_balance_minor
+        string currency_code
+        datetime initialized_at
+    }
+
+    category {
+        string id PK
+        string name
+        string normalized_key UK
+        boolean is_default
+        datetime created_at
+    }
+
+    finance_transaction {
+        string id PK
+        string entry_type
+        integer amount_minor
+        string currency_code
+        string category_id FK
+        string category_name_snapshot
+        date transaction_date
+        string description
+        datetime created_at
+    }
+
+    budget {
+        string id PK
+        string category_id FK
+        string month_key
+        integer monthly_limit_minor
+        string currency_code
+        datetime updated_at
+    }

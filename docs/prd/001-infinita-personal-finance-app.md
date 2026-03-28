@@ -6,7 +6,7 @@
 - Owner:
 - Reviewers:
 - Status: Draft
-- Version: 0.6
+- Version: 0.7
 - Created date: 2026-03-28
 - Last updated date: 2026-03-28
 - Related Documents:
@@ -54,6 +54,7 @@ This matters now because the MVP needs a simple, private, English-first workflow
 - Add income and expense transactions via CLI.
 - Store transactions locally on-device in MVP.
 - Support required transaction fields: type, amount, category, and date; description is optional.
+- Use fixed MVP currency `IDR` with decimal amount input allowed up to 2 fractional digits.
 - Support optional initial balance input for first-time setup or manual initialization.
 - Provide default categories and support custom categories.
 - Set and view monthly budget limits per category.
@@ -74,7 +75,7 @@ This matters now because the MVP needs a simple, private, English-first workflow
 ## Functional Requirements
 - `PRD-FR-001`: Users can add income transactions through the CLI.
 - `PRD-FR-002`: Users can add expense transactions through the CLI.
-- `PRD-FR-003`: The system requires transaction type, amount, category, and date for each transaction; description is optional.
+- `PRD-FR-003`: The system requires transaction type, amount, category, and date for each transaction; description is optional. In MVP, currency is fixed to `IDR` and amount input supports up to 2 fractional digits.
 - `PRD-FR-004`: The system provides default transaction categories.
 - `PRD-FR-005`: Users can create and use custom transaction categories.
 - `PRD-FR-006`: Users can list stored transactions.
@@ -90,7 +91,7 @@ This matters now because the MVP needs a simple, private, English-first workflow
 - `PRD-FR-016`: CLI settings must clearly show that active storage mode in MVP is local.
 
 ## Non-Functional Requirements
-- `PRD-NFR-001`: The system validates that transaction amount is greater than 0 and rejects invalid input.
+- `PRD-NFR-001`: The system validates that transaction amount is greater than 0, supports up to 2 fractional digits, and rejects invalid input.
 - `PRD-NFR-002`: Sensitive config and user data use secure local file permissions and documented local data handling rules.
 - `PRD-NFR-003`: Core CLI flows represented by example commands such as `add`, `list`, `budget`, and `report` achieve at least a 99% success rate in defined MVP test scenarios.
 - `PRD-NFR-004`: New transaction entry completes within 15 seconds for familiar users.
@@ -116,10 +117,10 @@ This matters now because the MVP needs a simple, private, English-first workflow
 - [ ] Given existing categories, when the user runs an example transaction-listing or filtering command, then category filtering works correctly.
 - [ ] Given monthly budgets are set, when the user runs an example budgeting command after expenses increase, then remaining budget and over-limit warnings are shown.
 - [ ] Given a reporting flow, when the user runs an example daily summary command, then period totals (income, expense, net balance) are accurate for the requested day bucket.
-- [ ] Given a reporting flow, when the user runs an example monthly summary command, then period totals and top categories are accurate for the requested month bucket and closing balance is accurate as of month end.
+- [ ] Given a reporting flow, when the user runs an example monthly summary command, then period totals and top spending categories are accurate for the requested month bucket and closing balance is accurate as of month end.
 - [ ] Given CLI core flows, when help, output, and errors are rendered, then wording is in English and terminology is consistent.
 - [ ] Given default app behavior, when data is persisted, then data stays local with secure file permissions and no telemetry by default.
-- [ ] Given invalid transaction input, when the user submits an amount less than or equal to 0, then the system rejects the input and shows a validation error.
+- [ ] Given invalid transaction input, when the user submits an amount less than or equal to 0 or with more than 2 fractional digits, then the system rejects the input and shows a validation error.
 - [ ] Given first-time setup or manual initialization, when the user provides an initial balance value, then the system stores it and uses it as the starting point for closing-balance calculations in summaries; when omitted, the system defaults initial balance to 0.
 - [ ] Given storage settings in MVP, when the user checks storage configuration, then storage mode is shown as local and data is stored only on-device.
 
