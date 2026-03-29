@@ -1,7 +1,7 @@
-# TRD-001: Infinita Personal Finance App (MVP CLI)
+# TRD: Infinita Personal Finance App (MVP CLI)
 
 ## Metadata
-- Document ID: TRD-001
+- Document ID: TRD
 - Title: Infinita Personal Finance App (MVP CLI)
 - Owner: TBD
 - Reviewers: TBD
@@ -9,16 +9,16 @@
 - Version: 0.21
 - Created date: 2026-03-28
 - Last updated date: 2026-03-29
-- Related PRD: `docs/prd/001-infinita-personal-finance-app.md`
+- Related PRD: `docs/prd.md`
 - Related ADRs: `docs/adr/ADR-003-adopt-sqlc-golang-migrate-tiered-testing.md`, `docs/adr/ADR-004-adopt-ulid-for-transaction-identifiers.md`, `docs/adr/ADR-005-enable-server-transport-with-embedded-architecture.md`
 - Related API Spec: `docs/api/openapi.yaml`
 
 ## Context
-This TRD translates PRD-001 into verifiable technical requirements for a CLI-first personal finance MVP focused on fast daily logging, category-based budgeting, simple reporting, optional initial balance, and privacy-first local-only storage.
+This TRD translates the PRD into verifiable technical requirements for a CLI-first personal finance MVP focused on fast daily logging, category-based budgeting, simple reporting, optional initial balance, and privacy-first local-only storage.
 
 Per ADR-005, the CLI communicates with business logic through an embedded HTTP server running in the same process. The CLI acts as a thin client making HTTP requests to localhost. All persistence and domain logic reside behind the HTTP API.
 
-Related PRD: `docs/prd/001-infinita-personal-finance-app.md`
+Related PRD: `docs/prd.md`
 Related API Spec: `docs/api/openapi.yaml`
 
 ## Technical Goals
@@ -265,7 +265,7 @@ Notes:
 
 ### Security
 - `TRD-SEC-001`: Data files or database artifacts must be created with user-only read/write permissions where supported by OS.
-- `TRD-SEC-002`: The project must document local data handling rules, including data path, permission model, backup guidance, and manual deletion steps. See [`docs/security/local-data-handling.md`](../security/local-data-handling.md).
+- `TRD-SEC-002`: The project must document local data handling rules, including data path, permission model, backup guidance, and manual deletion steps. See [`docs/security/local-data.md`](../security/local-data.md).
 
 ## Non-Functional Requirements
 - `TRD-NFR-001` (Performance): For familiar users, transaction entry flow (command issue to success response) must complete within 15 seconds in benchmark profile `MVP-CLI-BENCH-01`.
@@ -572,8 +572,7 @@ Current implementation note:
 - Should category and date filtering be expanded beyond current PRD MVP scope in initial implementation?
 
 ## References
-- `docs/prd/001-infinita-personal-finance-app.md`
-- `docs/trd/README.md`
+- `docs/prd.md`
 - `docs/diagrams/trd/001-trd-system-architecture.mmd`
 - `docs/diagrams/trd/001-trd-sequence-add-transaction.mmd`
 - `docs/diagrams/trd/001-trd-sequence-monthly-report.mmd`

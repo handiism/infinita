@@ -1,4 +1,4 @@
-# Local Data Handling
+# Local Data
 
 ## Storage Mode
 - Infinita MVP uses **local-only** storage.

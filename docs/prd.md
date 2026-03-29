@@ -1,7 +1,7 @@
-# PRD-001: Infinita Personal Finance App (MVP CLI)
+# PRD: Infinita Personal Finance App (MVP CLI)
 
 ## Metadata
-- Document ID: PRD-001
+- Document ID: PRD
 - Title: Infinita Personal Finance App (MVP CLI)
 - Owner:
 - Reviewers:
@@ -10,8 +10,7 @@
 - Created date: 2026-03-28
 - Last updated date: 2026-03-29
 - Related Documents:
-  - `docs/prd/README.md`
-  - `docs/trd/001-infinita-personal-finance-app-mvp-cli.md`
+  - `docs/trd.md`
   - `docs/adr/ADR-002-defer-server-separation-to-roadmap.md`
   - `docs/adr/ADR-005-enable-server-transport-with-embedded-architecture.md`
   - `docs/api/openapi.yaml`
@@ -110,7 +109,6 @@ This matters now because the MVP needs a simple, private, English-first workflow
 - Should custom categories be created implicitly during transaction entry or through a separate flow?
 
 ## References
-- `docs/prd/README.md`
 - `docs/diagrams/prd/001-prd-main-flow.mmd`
 
 ## Roadmap
