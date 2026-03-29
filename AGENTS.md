@@ -99,6 +99,58 @@ For the full directory layout, layer responsibilities, and dependency rules, see
   }
   ```
 
+## Documentation-First Policy
+
+Every significant change must be documentation-aligned. Code and docs must never drift apart.
+
+### What Counts as a Significant Change
+
+Any change that does one or more of the following:
+- Introduces a new domain concept, entity, or value object
+- Alters existing domain types or business rules
+- Adds, removes, or modifies CLI commands or their flags/behavior
+- Changes architectural boundaries (layers, ports, adapters)
+- Modifies data model (schema, tables, columns, constraints)
+- Introduces a new external dependency or library
+- Changes error handling strategy or error codes
+- Affects monetary handling, validation logic, or scope boundaries
+
+### Before Making Any Significant Change
+
+1. **Read existing ADRs first.** Check `docs/adr/` for any ADR whose decision might be affected by or relevant to the planned change. List all ADRs in the directory to find applicable ones.
+2. **Read the PRD.** Verify the change aligns with product scope defined in `docs/prd/001-infinita-personal-finance-app.md`. If the change falls outside MVP scope, stop and ask the user.
+3. **Read the TRD.** Verify the change is consistent with technical contracts in `docs/trd/001-infinita-personal-finance-app-mvp-cli.md`. If the TRD contradicts the change, either update the TRD or reconsider the change.
+4. **Read architecture and data model diagrams.** Check `docs/diagrams/trd/` if the change affects system structure or data model.
+
+### When Writing Documentation Updates
+
+- **New architectural/engineering decision → write an ADR.** Follow the template in `docs/adr/README.md`. Use the next sequential ID. Link related PRDs/TRDs.
+- **Product scope change → update PRD.** If the change adds, removes, or redefines a feature, update the relevant PRD section. Keep PRD as the single source of truth for "what" the system does.
+- **Technical contract change → update TRD.** If the change alters CLI surface, data model, validation rules, error codes, or architectural boundaries, update the TRD. Keep TRD as the single source of truth for "how" the system is built.
+- **Diagram-affected change → update diagrams.** If the change modifies system architecture or data model, update the corresponding `.mmd` files in `docs/diagrams/`.
+- **ADR superseded → create new ADR.** Never modify an accepted ADR. Create a new ADR with a "Supersedes" reference and update the old ADR's status to "Superseded".
+
+### Doc-Code Consistency Checklist
+
+Before completing any significant change, verify:
+1. All affected ADRs have been reviewed and are still consistent with the change
+2. PRD accurately reflects the feature scope after the change
+3. TRD accurately reflects CLI surface, data model, validation rules, and architecture after the change
+4. Diagrams (if affected) are updated to match the new state
+5. No documented behavior is contradicted by the implementation
+6. No implemented behavior is missing from documentation
+
+### Quick Reference — Doc Locations
+
+| Document | Location | Purpose |
+|----------|----------|---------|
+| ADRs | `docs/adr/ADR-XXX-*.md` | Architecture & engineering decisions |
+| PRD | `docs/prd/001-*.md` | Product requirements & scope |
+| TRD | `docs/trd/001-*.md` | Technical requirements & contracts |
+| Architecture diagram | `docs/diagrams/trd/001-trd-system-architecture.mmd` | System structure |
+| Data model diagram | `docs/diagrams/trd/001-trd-data-model-erd.mmd` | Database schema |
+| ADR template | `docs/adr/README.md` | How to write ADRs |
+
 ## Critical Rules for Agents
 
 These are the most frequently violated constraints. For full details, see TRD.
@@ -167,6 +219,9 @@ This project is indexed by GitNexus as **infinita** (831 symbols, 1802 relations
 - NEVER ignore HIGH or CRITICAL risk warnings from impact analysis.
 - NEVER rename symbols with find-and-replace — use `gitnexus_rename` which understands the call graph.
 - NEVER commit changes without running `gitnexus_detect_changes()` to check affected scope.
+- NEVER make a significant change without reviewing existing ADRs in `docs/adr/` first.
+- NEVER commit code that contradicts or diverges from PRD, TRD, or ADR documentation.
+- NEVER implement behavior that is not documented, or document behavior that is not implemented.
 
 ### Tools Quick Reference
 
@@ -203,6 +258,10 @@ Before completing any code modification task, verify:
 2. No HIGH/CRITICAL risk warnings were ignored
 3. `gitnexus_detect_changes()` confirms changes match expected scope
 4. All d=1 (WILL BREAK) dependents were updated
+5. All relevant ADRs in `docs/adr/` have been reviewed and are still consistent
+6. PRD and TRD are updated if the change affects product scope or technical contracts
+7. Diagrams in `docs/diagrams/` are updated if architecture or data model changed
+8. No gap exists between documentation and implementation
 
 ### Keeping the Index Fresh
 
