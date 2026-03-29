@@ -2,7 +2,7 @@
 
 Use an ADR when a change affects architecture, boundaries, storage, transport, validation strategy, or a lasting engineering rule.
 
-Agent checklist:
+Authoritative checklist:
 
 1. Read existing ADRs in `docs/adr/` first.
 2. Create one ADR for one decision.
