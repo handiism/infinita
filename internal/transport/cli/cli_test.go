@@ -18,7 +18,7 @@ func TestCLIDisplaysListHeader(t *testing.T) {
 	cmd.Env = append(os.Environ(), "INFINITA_DATA_DIR="+dataDir)
 	output, err := cmd.CombinedOutput()
 	require.NoError(t, err)
-	require.Contains(t, string(output), "ID  Date")
+	require.Contains(t, string(output), "ID       Date")
 }
 
 func TestCLIIntegrationCommands(t *testing.T) {

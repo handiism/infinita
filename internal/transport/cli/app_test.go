@@ -202,7 +202,7 @@ func TestListCommandSuccess(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Run() error = %v", err)
 	}
-	if got := stdout.String(); !strings.Contains(got, "ID  Date") || !strings.Contains(got, "1 2024-01-15 expense Food 12345 lunch") {
+	if got := stdout.String(); !strings.Contains(got, "ID       Date") || !strings.Contains(got, "1        2024-01-15 expense  Food      12345     lunch") {
 		t.Fatalf("unexpected stdout: %q", got)
 	}
 }

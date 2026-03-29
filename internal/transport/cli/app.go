@@ -132,9 +132,13 @@ func (a *App) listCommand() *ucli.Command {
 			if err != nil {
 				return cliExitError(err, exitCode(err))
 			}
-			_, _ = fmt.Fprintln(cmd.Writer, "ID  Date       Type    Category    Amount    Description")
+			_, _ = fmt.Fprintln(cmd.Writer, "ID       Date       Type     Category  Amount    Description")
 			for _, txn := range transactions {
-				_, _ = fmt.Fprintf(cmd.Writer, "%s %s %s %s %d %s\n", txn.ID, txn.Date, txn.Type, txn.CategoryNameSnapshot, txn.AmountMinor, txn.Description)
+				shortID := txn.ID
+				if len(shortID) > 8 {
+					shortID = shortID[:8]
+				}
+				_, _ = fmt.Fprintf(cmd.Writer, "%-8s %-10s %-8s %-9s %-9d %s\n", shortID, txn.Date, txn.Type, txn.CategoryNameSnapshot, txn.AmountMinor, txn.Description)
 			}
 			return nil
 		},
