@@ -6,11 +6,11 @@
 - Owner: TBD
 - Reviewers: TBD
 - Status: Draft
-- Version: 0.19
+- Version: 0.20
 - Created date: 2026-03-28
-- Last updated date: 2026-03-28
+- Last updated date: 2026-03-29
 - Related PRD: `docs/prd/001-infinita-personal-finance-app.md`
-- Related ADRs: `docs/adr/ADR-002-defer-server-separation-to-roadmap.md`, `docs/adr/ADR-003-adopt-sqlc-golang-migrate-tiered-testing.md`
+- Related ADRs: `docs/adr/ADR-002-defer-server-separation-to-roadmap.md`, `docs/adr/ADR-003-adopt-sqlc-golang-migrate-tiered-testing.md`, `docs/adr/ADR-004-adopt-ulid-for-transaction-identifiers.md`
 
 ## Context
 This TRD translates PRD-001 into verifiable technical requirements for a CLI-first personal finance MVP focused on fast daily logging, category-based budgeting, simple reporting, optional initial balance, and privacy-first local-only storage.
@@ -198,7 +198,7 @@ Roadmap (post-MVP target):
 - `TRD-VAL-003`: All monetary CLI inputs (`add --amount`, `budget set --amount`, `settings set-initial-balance --amount`) must use the same decimal-token validation and exact normalization rules to minor units; implicit rounding is forbidden.
 
 ### Data
-- `TRD-DATA-001`: Transactions must be persisted with fields: `id`, `type`, `amountMinor`, `currencyCode`, `categoryId`, `categoryNameSnapshot?`, `date`, `description?`, `createdAt`.
+- `TRD-DATA-001`: Transactions must be persisted with fields: `id` (ULID, 26-char lexicographically sortable string — see ADR-004), `type`, `amountMinor`, `currencyCode`, `categoryId`, `categoryNameSnapshot?`, `date`, `description?`, `createdAt`.
 - `TRD-DATA-002`: Categories must support seeded defaults and user-created custom values, with uniqueness enforced case-insensitively using a normalized category key.
 - `TRD-DATA-003`: Financial data in MVP must be persisted locally on-device only.
 - `TRD-DATA-004`: Initial balance must be stored as `initialBalanceMinor` (integer minor units) with `currencyCode` and audit timestamp.
@@ -434,6 +434,7 @@ Normalization and validation:
 - sqlc CLI tool (`github.com/sqlc-dev/sqlc`) for SQL-to-Go code generation.
 - golang-migrate (`github.com/golang-migrate/migrate/v4`) for schema migration with `database/sqlite3` and `source/iofs` drivers.
 - Date/time utility with deterministic timezone handling.
+- ULID library (`github.com/oklog/ulid/v2`) for sortable, collision-resistant transaction identifiers (see ADR-004).
 - Test framework supporting CLI integration tests and scenario replay.
 - Mock generation tool for service unit tests (e.g., `gomock` or `testify/mock`).
 

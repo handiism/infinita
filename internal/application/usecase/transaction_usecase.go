@@ -4,12 +4,11 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/google/uuid"
-
 	"github.com/handiism/infinita/internal/application/port/output"
 	"github.com/handiism/infinita/internal/application/validation"
 	"github.com/handiism/infinita/internal/domain/entity"
 	domainerror "github.com/handiism/infinita/internal/domain/error"
+	"github.com/handiism/infinita/internal/domain/valueobject"
 )
 
 const (
@@ -49,7 +48,7 @@ func (u *TransactionUseCase) AddTransaction(ctx context.Context, entryType strin
 		return err
 	}
 
-	txn := entity.NewTransaction(uuid.NewString(), parsedType, amountMinor, "IDR", cat.ID, cat.Name, normalizedDate, description)
+	txn := entity.NewTransaction(valueobject.NewID(), parsedType, amountMinor, "IDR", cat.ID, cat.Name, normalizedDate, description)
 	return u.txRepo.Create(ctx, txn)
 }
 

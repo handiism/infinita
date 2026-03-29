@@ -1,6 +1,9 @@
 package valueobject
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestNormalizeCategoryKey(t *testing.T) {
 	if got := NormalizeCategoryKey("  Food And Drink  "); got != "food and drink" {
@@ -27,5 +30,34 @@ func TestParseEntryType(t *testing.T) {
 				t.Fatalf("ParseEntryType() = (%q, %t), want (%q, %t)", got, ok, tt.want, tt.ok)
 			}
 		})
+	}
+}
+
+func TestNewID(t *testing.T) {
+	id1 := NewID()
+	id2 := NewID()
+
+	if len(id1) != 26 {
+		t.Fatalf("NewID() length = %d, want 26", len(id1))
+	}
+	if id1 == id2 {
+		t.Fatalf("NewID() returned duplicate IDs")
+	}
+	for _, c := range id1 {
+		if !strings.ContainsRune("0123456789ABCDEFGHJKMNPQRSTVWXYZ", c) {
+			t.Fatalf("NewID() contains invalid character %q", c)
+		}
+	}
+}
+
+func TestNewIDSortability(t *testing.T) {
+	ids := make([]string, 100)
+	for i := range ids {
+		ids[i] = NewID()
+	}
+	for i := 1; i < len(ids); i++ {
+		if ids[i] <= ids[i-1] {
+			t.Fatalf("IDs not monotonically increasing at index %d: %q <= %q", i, ids[i], ids[i-1])
+		}
 	}
 }
