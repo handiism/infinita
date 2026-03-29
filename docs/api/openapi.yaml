@@ -1,0 +1,1109 @@
+openapi: 3.1.0
+info:
+  title: Infinita API
+  description: Internal REST API for Infinita personal finance CLI. The embedded HTTP server communicates exclusively with the CLI client via localhost. This spec is the single source of truth for all API contracts.
+  version: 1.0.0
+
+servers:
+  - url: http://127.0.0.1:{port}
+    description: Localhost embedded server
+    variables:
+      port:
+        default: "0"
+        description: Dynamically assigned available port
+
+components:
+  schemas:
+    ErrorObject:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          description: Machine-readable error code, per-field per-rule.
+          example: INVALID_AMOUNT
+        message:
+          type: string
+          description: Human-readable error description.
+          example: Amount must be greater than 0
+        field:
+          type: string
+          description: Request field that caused the error, if applicable.
+          example: amount
+        hint:
+          type: string
+          description: Suggestion for fixing the error.
+          example: provide a positive numeric value
+
+    HealthData:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum:
+            - ok
+
+    Transaction:
+      type: object
+      required:
+        - id
+        - type
+        - amountMinor
+        - currencyCode
+        - categoryId
+        - categoryNameSnapshot
+        - date
+        - createdAt
+      properties:
+        id:
+          type: string
+          description: ULID identifier (26-char lexicographically sortable).
+          example: 01JF5YR2K3QMHNBTZE7XVGS4PA
+        type:
+          type: string
+          enum:
+            - income
+            - expense
+        amountMinor:
+          type: integer
+          format: int64
+          description: Amount in minor currency units (cents).
+          example: 5000000
+        currencyCode:
+          type: string
+          description: Fixed to IDR in MVP.
+          example: IDR
+        categoryId:
+          type: integer
+          format: int64
+          description: Category identifier.
+          example: 1
+        categoryNameSnapshot:
+          type: string
+          description: Category name snapshot at time of transaction creation.
+          example: food
+        date:
+          type: string
+          format: date
+          description: Transaction date in ISO 8601.
+          example: "2026-03-29"
+        description:
+          type:
+            - string
+            - "null"
+          description: Optional transaction description.
+          example: lunch
+        createdAt:
+          type: string
+          format: date-time
+          description: ISO 8601 creation timestamp.
+          example: "2026-03-29T10:00:00Z"
+
+    PaginationMeta:
+      type: object
+      required:
+        - total
+        - limit
+        - offset
+      properties:
+        total:
+          type: integer
+          description: Total number of matching records.
+          example: 150
+        limit:
+          type: integer
+          description: Applied page size limit.
+          example: 50
+        offset:
+          type: integer
+          description: Applied offset for pagination.
+          example: 0
+
+    Category:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: Category identifier.
+          example: 1
+        name:
+          type: string
+          description: Category display name.
+          example: food
+        description:
+          type:
+            - string
+            - "null"
+          description: Optional category description.
+          example: Food and beverages
+
+    BudgetStatus:
+      type: object
+      required:
+        - categoryName
+        - currencyCode
+        - monthlyLimitMinor
+        - spentMonthToDateMinor
+        - remainingMinor
+        - isOverLimit
+      properties:
+        categoryName:
+          type: string
+          example: food
+        currencyCode:
+          type: string
+          example: IDR
+        monthlyLimitMinor:
+          type: integer
+          format: int64
+          description: Budget limit in minor units for the month.
+          example: 200000000
+        spentMonthToDateMinor:
+          type: integer
+          format: int64
+          description: Total spent in the category for the month.
+          example: 150000000
+        remainingMinor:
+          type: integer
+          format: int64
+          description: Remaining budget (negative when over limit).
+          example: 50000000
+        isOverLimit:
+          type: boolean
+          example: false
+
+    TopCategory:
+      type: object
+      required:
+        - category
+        - amountMinor
+      properties:
+        category:
+          type: string
+          example: food
+        amountMinor:
+          type: integer
+          format: int64
+          example: 12000000
+
+    DailyReport:
+      type: object
+      required:
+        - period
+        - date
+        - currencyCode
+        - incomeTotalMinor
+        - expenseTotalMinor
+        - netBalanceMinor
+      properties:
+        period:
+          type: string
+          enum:
+            - daily
+        date:
+          type: string
+          format: date
+          example: "2026-03-29"
+        currencyCode:
+          type: string
+          example: IDR
+        incomeTotalMinor:
+          type: integer
+          format: int64
+          example: 50000000
+        expenseTotalMinor:
+          type: integer
+          format: int64
+          example: 32000000
+        netBalanceMinor:
+          type: integer
+          format: int64
+          description: Must equal incomeTotalMinor minus expenseTotalMinor.
+          example: 18000000
+
+    MonthlyReport:
+      type: object
+      required:
+        - period
+        - month
+        - currencyCode
+        - incomeTotalMinor
+        - expenseTotalMinor
+        - netBalanceMinor
+        - closingBalanceMinor
+        - topCategories
+      properties:
+        period:
+          type: string
+          enum:
+            - monthly
+        month:
+          type: string
+          format: date
+          description: Month in YYYY-MM format.
+          example: "2026-03"
+        currencyCode:
+          type: string
+          example: IDR
+        incomeTotalMinor:
+          type: integer
+          format: int64
+          example: 50000000
+        expenseTotalMinor:
+          type: integer
+          format: int64
+          example: 32000000
+        netBalanceMinor:
+          type: integer
+          format: int64
+          description: Must equal incomeTotalMinor minus expenseTotalMinor.
+          example: 18000000
+        closingBalanceMinor:
+          type: integer
+          format: int64
+          description: Cumulative balance at month end. initialBalanceMinor + cumulativeIncomeToPeriodEnd - cumulativeExpenseToPeriodEnd.
+          example: 218000000
+        topCategories:
+          type: array
+          items:
+            $ref: "#/components/schemas/TopCategory"
+          description: Spending categories ranked by amountMinor DESC, then category ASC.
+
+    Settings:
+      type: object
+      required:
+        - storageMode
+        - analyticsOptIn
+        - reportTimezone
+      properties:
+        storageMode:
+          type: string
+          example: local
+        analyticsOptIn:
+          type: boolean
+          example: false
+        reportTimezone:
+          type: string
+          description: IANA timezone name.
+          example: Asia/Jakarta
+
+    InitialBalance:
+      type: object
+      required:
+        - initialBalanceMinor
+        - currencyCode
+        - initializedAt
+      properties:
+        initialBalanceMinor:
+          type: integer
+          format: int64
+          description: Initial balance in minor units.
+          example: 5000000
+        currencyCode:
+          type: string
+          example: IDR
+        initializedAt:
+          type: string
+          format: date-time
+          example: "2026-03-29T10:00:00Z"
+
+    SuccessResponse:
+      type: object
+      required:
+        - status
+        - data
+        - meta
+      properties:
+        status:
+          type: string
+          enum:
+            - success
+        data: {}
+        meta:
+          description: Optional metadata context. Null when not applicable.
+          type:
+            - object
+            - "null"
+          additionalProperties: true
+
+    FailResponse:
+      type: object
+      required:
+        - status
+        - data
+        - meta
+      properties:
+        status:
+          type: string
+          enum:
+            - fail
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ErrorObject"
+          minItems: 1
+          description: Always an array of ErrorObject, even for single errors.
+        meta:
+          type:
+            - object
+            - "null"
+          additionalProperties: true
+
+    ErrorResponse:
+      type: object
+      required:
+        - status
+        - code
+        - message
+        - meta
+      properties:
+        status:
+          type: string
+          enum:
+            - error
+        code:
+          type: string
+          description: Machine-readable server error code.
+          example: INTERNAL_ERROR
+        message:
+          type: string
+          description: Human-readable server error description.
+          example: Internal server error
+        meta:
+          type:
+            - object
+            - "null"
+          additionalProperties: true
+
+paths:
+  /health:
+    get:
+      operationId: healthCheck
+      summary: Health check
+      description: Returns server health status. Used by CLI to verify server readiness.
+      responses:
+        "200":
+          description: Server is healthy.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/HealthData"
+              example:
+                status: success
+                data:
+                  status: ok
+                meta: null
+
+  /transactions:
+    post:
+      operationId: addTransaction
+      summary: Add a transaction
+      description: Creates a new income or expense transaction.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - type
+                - amountMinor
+                - currencyCode
+                - category
+                - date
+              properties:
+                type:
+                  type: string
+                  enum:
+                    - income
+                    - expense
+                amountMinor:
+                  type: integer
+                  format: int64
+                  description: Amount in minor units. Must be greater than 0.
+                  example: 5000000
+                currencyCode:
+                  type: string
+                  example: IDR
+                category:
+                  type: string
+                  description: Category name. Must match an existing category.
+                  example: food
+                date:
+                  type: string
+                  format: date
+                  example: "2026-03-29"
+                description:
+                  type:
+                    - string
+                    - "null"
+                  description: Optional transaction description.
+                  example: lunch
+            example:
+              type: expense
+              amountMinor: 5000000
+              currencyCode: IDR
+              category: food
+              date: "2026-03-29"
+              description: lunch
+      responses:
+        "201":
+          description: Transaction created successfully.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/Transaction"
+              example:
+                status: success
+                data:
+                  id: 01JF5YR2K3QMHNBTZE7XVGS4PA
+                  type: expense
+                  amountMinor: 5000000
+                  currencyCode: IDR
+                  categoryId: 1
+                  categoryNameSnapshot: food
+                  date: "2026-03-29"
+                  description: lunch
+                  createdAt: "2026-03-29T10:00:00Z"
+                meta: null
+        "400":
+          description: Validation error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FailResponse"
+              example:
+                status: fail
+                data:
+                  - code: INVALID_AMOUNT
+                    message: Amount must be greater than 0
+                    field: amount
+                    hint: provide a positive numeric value
+                meta: null
+        "500":
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    get:
+      operationId: listTransactions
+      summary: List transactions
+      description: Lists transactions with optional category filter and pagination.
+      parameters:
+        - name: category
+          in: query
+          description: Filter by category name (case-insensitive).
+          required: false
+          schema:
+            type: string
+          example: food
+        - name: limit
+          in: query
+          description: Maximum number of results. Defaults to 50, max 500.
+          required: false
+          schema:
+            type: integer
+            default: 50
+            maximum: 500
+          example: 50
+        - name: offset
+          in: query
+          description: Number of results to skip. Defaults to 0.
+          required: false
+          schema:
+            type: integer
+            default: 0
+          example: 0
+      responses:
+        "200":
+          description: List of transactions.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Transaction"
+                      meta:
+                        $ref: "#/components/schemas/PaginationMeta"
+              example:
+                status: success
+                data:
+                  - id: 01JF5YR2K3QMHNBTZE7XVGS4PA
+                    type: expense
+                    amountMinor: 5000000
+                    currencyCode: IDR
+                    categoryId: 1
+                    categoryNameSnapshot: food
+                    date: "2026-03-29"
+                    description: lunch
+                    createdAt: "2026-03-29T10:00:00Z"
+                meta:
+                  total: 150
+                  limit: 50
+                  offset: 0
+        "500":
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /categories:
+    get:
+      operationId: listCategories
+      summary: List categories
+      description: Lists all available categories (default and custom).
+      responses:
+        "200":
+          description: List of categories.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Category"
+              example:
+                status: success
+                data:
+                  - id: 1
+                    name: food
+                    description: Food and beverages
+                meta: null
+        "500":
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    post:
+      operationId: createCategory
+      summary: Create a category
+      description: Creates a new custom category.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  description: Category name.
+                  example: food
+                description:
+                  type:
+                    - string
+                    - "null"
+                  description: Optional category description.
+                  example: Food and beverages
+            example:
+              name: food
+              description: Food and beverages
+      responses:
+        "201":
+          description: Category created successfully.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/Category"
+              example:
+                status: success
+                data:
+                  id: 2
+                  name: food
+                  description: Food and beverages
+                meta: null
+        "400":
+          description: Validation error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FailResponse"
+              example:
+                status: fail
+                data:
+                  - code: CATEGORY_EXISTS
+                    message: "Category 'food' already exists"
+                    field: name
+                    hint: use a different category name
+                meta: null
+        "500":
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /budgets:
+    put:
+      operationId: setBudget
+      summary: Set monthly budget
+      description: Sets or updates a monthly budget limit for a category.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - category
+                - month
+                - monthlyLimitMinor
+              properties:
+                category:
+                  type: string
+                  description: Category name.
+                  example: food
+                month:
+                  type: string
+                  description: Month in YYYY-MM format.
+                  example: "2026-03"
+                monthlyLimitMinor:
+                  type: integer
+                  format: int64
+                  description: Budget limit in minor units.
+                  example: 200000000
+            example:
+              category: food
+              month: "2026-03"
+              monthlyLimitMinor: 200000000
+      responses:
+        "200":
+          description: Budget stored successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+              example:
+                status: success
+                data: null
+                meta: null
+        "400":
+          description: Validation error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FailResponse"
+              example:
+                status: fail
+                data:
+                  - code: UNKNOWN_CATEGORY
+                    message: "Category 'foo' does not exist"
+                    field: category
+                    hint: use "category list" to see available categories
+                meta: null
+        "500":
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /budgets/status:
+    get:
+      operationId: getBudgetStatus
+      summary: Get monthly budget status
+      description: Returns budget status for all categories that have a budget set for the given month.
+      parameters:
+        - name: month
+          in: query
+          description: Month in YYYY-MM format.
+          required: true
+          schema:
+            type: string
+          example: "2026-03"
+      responses:
+        "200":
+          description: Budget status for the month.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/BudgetStatus"
+              example:
+                status: success
+                data:
+                  - categoryName: food
+                    currencyCode: IDR
+                    monthlyLimitMinor: 200000000
+                    spentMonthToDateMinor: 150000000
+                    remainingMinor: 50000000
+                    isOverLimit: false
+                meta: null
+        "400":
+          description: Validation error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FailResponse"
+              example:
+                status: fail
+                data:
+                  - code: INVALID_DATE
+                    message: Invalid month format
+                    field: month
+                    hint: expected YYYY-MM
+                meta: null
+        "500":
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /reports/daily:
+    get:
+      operationId: getDailyReport
+      summary: Get daily report
+      description: Returns income, expense, and net balance for a specific day.
+      parameters:
+        - name: date
+          in: query
+          description: Date in YYYY-MM-DD format.
+          required: true
+          schema:
+            type: string
+            format: date
+          example: "2026-03-29"
+      responses:
+        "200":
+          description: Daily report.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/DailyReport"
+              example:
+                status: success
+                data:
+                  period: daily
+                  date: "2026-03-29"
+                  currencyCode: IDR
+                  incomeTotalMinor: 50000000
+                  expenseTotalMinor: 32000000
+                  netBalanceMinor: 18000000
+                meta: null
+        "400":
+          description: Validation error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FailResponse"
+              example:
+                status: fail
+                data:
+                  - code: INVALID_DATE
+                    message: Invalid date format
+                    field: date
+                    hint: expected YYYY-MM-DD
+                meta: null
+        "500":
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /reports/monthly:
+    get:
+      operationId: getMonthlyReport
+      summary: Get monthly report
+      description: Returns income, expense, net balance, closing balance, and top spending categories for a specific month.
+      parameters:
+        - name: month
+          in: query
+          description: Month in YYYY-MM format.
+          required: true
+          schema:
+            type: string
+          example: "2026-03"
+      responses:
+        "200":
+          description: Monthly report.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/MonthlyReport"
+              example:
+                status: success
+                data:
+                  period: monthly
+                  month: "2026-03"
+                  currencyCode: IDR
+                  incomeTotalMinor: 50000000
+                  expenseTotalMinor: 32000000
+                  netBalanceMinor: 18000000
+                  closingBalanceMinor: 218000000
+                  topCategories:
+                    - category: food
+                      amountMinor: 12000000
+                    - category: transport
+                      amountMinor: 6000000
+                meta: null
+        "400":
+          description: Validation error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FailResponse"
+              example:
+                status: fail
+                data:
+                  - code: INVALID_DATE
+                    message: Invalid month format
+                    field: month
+                    hint: expected YYYY-MM
+                meta: null
+        "500":
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /settings:
+    get:
+      operationId: getSettings
+      summary: Get current settings
+      description: Returns the current application settings.
+      responses:
+        "200":
+          description: Current settings.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/Settings"
+              example:
+                status: success
+                data:
+                  storageMode: local
+                  analyticsOptIn: false
+                  reportTimezone: Asia/Jakarta
+                meta: null
+        "500":
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /settings/initial-balance:
+    put:
+      operationId: setInitialBalance
+      summary: Set initial balance
+      description: Sets or updates the initial balance used for closing balance calculations.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - initialBalanceMinor
+                - currencyCode
+              properties:
+                initialBalanceMinor:
+                  type: integer
+                  format: int64
+                  description: Initial balance in minor units. Must be greater than or equal to 0.
+                  example: 5000000
+                currencyCode:
+                  type: string
+                  example: IDR
+            example:
+              initialBalanceMinor: 5000000
+              currencyCode: IDR
+      responses:
+        "200":
+          description: Initial balance updated.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/InitialBalance"
+              example:
+                status: success
+                data:
+                  initialBalanceMinor: 5000000
+                  currencyCode: IDR
+                  initializedAt: "2026-03-29T10:00:00Z"
+                meta: null
+        "400":
+          description: Validation error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FailResponse"
+              example:
+                status: fail
+                data:
+                  - code: INVALID_AMOUNT
+                    message: Amount must be greater than or equal to 0
+                    field: initialBalanceMinor
+                    hint: provide a non-negative numeric value
+                meta: null
+        "500":
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    delete:
+      operationId: resetInitialBalance
+      summary: Reset initial balance
+      description: Resets the initial balance to 0.
+      responses:
+        "200":
+          description: Initial balance reset.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+              example:
+                status: success
+                data: null
+                meta: null
+        "500":
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /settings/analytics:
+    put:
+      operationId: setAnalyticsOptIn
+      summary: Update analytics opt-in
+      description: Enables or disables anonymous analytics event emission.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - analyticsOptIn
+              properties:
+                analyticsOptIn:
+                  type: boolean
+                  example: true
+            example:
+              analyticsOptIn: true
+      responses:
+        "200":
+          description: Analytics opt-in updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+              example:
+                status: success
+                data: null
+                meta: null
+        "500":
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /settings/report-timezone:
+    put:
+      operationId: setReportTimezone
+      summary: Update report timezone
+      description: Sets the timezone used for daily and monthly report date boundaries.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - reportTimezone
+              properties:
+                reportTimezone:
+                  type: string
+                  description: IANA timezone name.
+                  example: Asia/Jakarta
+            example:
+              reportTimezone: Asia/Jakarta
+      responses:
+        "200":
+          description: Report timezone updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+              example:
+                status: success
+                data: null
+                meta: null
+        "500":
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"

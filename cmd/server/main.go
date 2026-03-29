@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"log"
+	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -15,10 +17,7 @@ import (
 	domainerror "github.com/handiism/infinita/internal/domain/error"
 	"github.com/handiism/infinita/internal/infrastructure/database/sqlite"
 	"github.com/handiism/infinita/internal/infrastructure/database/sqlite/sqlc"
-	transportcli "github.com/handiism/infinita/internal/transport/cli"
-	transportclient "github.com/handiism/infinita/internal/transport/client"
 	transportserver "github.com/handiism/infinita/internal/transport/server"
-	ucli "github.com/urfave/cli/v3"
 )
 
 const envDataDir = "INFINITA_DATA_DIR"
@@ -29,12 +28,12 @@ func main() {
 
 	dataDir, err := resolveDataDir()
 	if err != nil {
-		exitRuntime(fmt.Errorf("determine data directory: %w", err))
+		log.Fatalf("determine data directory: %v", err)
 	}
 
 	db, err := sqlite.OpenDatabase(dataDir)
 	if err != nil {
-		exitRuntime(fmt.Errorf("database: %w", err))
+		log.Fatalf("database: %v", err)
 	}
 	defer db.Close()
 
@@ -46,78 +45,53 @@ func main() {
 	initialBalanceRepo := sqlite.NewInitialBalanceRepository(queries)
 
 	if err := enforceLocalOnly(context.Background(), settingRepo); err != nil {
-		exitRuntime(err)
+		log.Fatalf("startup validation: %v", err)
 	}
 
-	// Create use cases for the server
 	txnUsecase := usecase.NewTransactionUseCase(transactionRepo, categoryRepo)
 	categoryUsecase := usecase.NewCategoryUseCase(categoryRepo)
 	budgetUsecase := usecase.NewBudgetUseCase(budgetRepo, categoryRepo)
 	reportUsecase := usecase.NewReportUseCase(transactionRepo, initialBalanceRepo, settingRepo)
 	settingsUsecase := usecase.NewSettingsUseCase(settingRepo, initialBalanceRepo)
 
-	// Start embedded HTTP server
-	server := transportserver.New(
+	handler := transportserver.NewHandler(
 		txnUsecase,
 		categoryUsecase,
 		budgetUsecase,
 		reportUsecase,
 		settingsUsecase,
 	)
+	mux := transportserver.NewRouter(handler)
+	server := &http.Server{
+		Addr:    "127.0.0.1:8080",
+		Handler: mux,
+	}
 
-	portCh, err := server.Start(ctx)
+	ln, err := net.Listen("tcp", "127.0.0.1:8080")
 	if err != nil {
-		exitRuntime(fmt.Errorf("start server: %w", err))
+		ln, err = net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			log.Fatalf("failed to create listener: %v", err)
+		}
 	}
+	log.Printf("Starting server on http://%s", ln.Addr().String())
 
-	var port int
-	select {
-	case port = <-portCh:
-	case <-ctx.Done():
-		exitRuntime(fmt.Errorf("server startup cancelled"))
-	}
+	go func() {
+		if err := server.Serve(ln); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("server error: %v", err)
+		}
+	}()
 
-	baseURL := fmt.Sprintf("http://127.0.0.1:%d", port)
+	<-ctx.Done()
+	log.Println("Shutting down server...")
 
-	// Wait for server to be ready
-	readyCtx, readyCancel := context.WithTimeout(ctx, 5*time.Second)
-	defer readyCancel()
-	if err := server.WaitForReady(readyCtx, baseURL); err != nil {
-		exitRuntime(fmt.Errorf("server readiness check failed: %w", err))
-	}
-
-	// Create HTTP client that implements use case interfaces
-	client := transportclient.New(baseURL)
-
-	app := transportcli.NewApp(
-		client,
-		client,
-		client,
-		client,
-		client,
-		os.Stdout,
-		os.Stderr,
-	)
-
-	err = app.Command().Run(ctx, os.Args)
-
-	// Graceful shutdown
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer shutdownCancel()
-	if shutdownErr := server.Shutdown(shutdownCtx); shutdownErr != nil {
-		fmt.Fprintln(os.Stderr, "server shutdown error:", shutdownErr)
-	}
 
-	if err != nil {
-		ucli.HandleExitCoder(err)
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(exitCode(err))
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		log.Fatalf("server shutdown error: %v", err)
 	}
-}
-
-func exitRuntime(err error) {
-	fmt.Fprintln(os.Stderr, err)
-	os.Exit(3)
+	log.Println("Server stopped")
 }
 
 func resolveDataDir() (string, error) {
@@ -140,12 +114,4 @@ func enforceLocalOnly(ctx context.Context, settingsRepo output.SettingsRepositor
 		return domainerror.ErrInvalidStorageMode.WithField("storage_mode").WithHint(fmt.Sprintf("unsupported configured mode '%s'; storage mode must remain local in MVP", settings.StorageMode))
 	}
 	return nil
-}
-
-func exitCode(err error) int {
-	var clientErr *transportclient.ClientError
-	if errors.As(err, &clientErr) {
-		return clientErr.ExitCode()
-	}
-	return 3
 }

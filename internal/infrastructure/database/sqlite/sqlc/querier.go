@@ -9,6 +9,7 @@ import (
 )
 
 type Querier interface {
+	CountTransactions(ctx context.Context, dollar_1 interface{}) (int64, error)
 	CreateCategory(ctx context.Context, arg CreateCategoryParams) error
 	CreateTransaction(ctx context.Context, arg CreateTransactionParams) error
 	GetAnalyticsConsent(ctx context.Context) (AnalyticsConsent, error)
@@ -24,7 +25,7 @@ type Querier interface {
 	SumTransactionTotalsForMonth(ctx context.Context, date string) (SumTransactionTotalsForMonthRow, error)
 	TopCategoriesForMonth(ctx context.Context, date string) ([]TopCategoriesForMonthRow, error)
 	UpsertBudget(ctx context.Context, arg UpsertBudgetParams) error
-	UpsertInitialBalance(ctx context.Context, arg UpsertInitialBalanceParams) error
+	UpsertInitialBalance(ctx context.Context, arg UpsertInitialBalanceParams) (InitialBalance, error)
 	UpsertSetting(ctx context.Context, arg UpsertSettingParams) error
 }
 

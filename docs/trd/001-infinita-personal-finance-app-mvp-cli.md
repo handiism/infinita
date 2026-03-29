@@ -6,16 +6,20 @@
 - Owner: TBD
 - Reviewers: TBD
 - Status: Draft
-- Version: 0.20
+- Version: 0.21
 - Created date: 2026-03-28
 - Last updated date: 2026-03-29
 - Related PRD: `docs/prd/001-infinita-personal-finance-app.md`
-- Related ADRs: `docs/adr/ADR-002-defer-server-separation-to-roadmap.md`, `docs/adr/ADR-003-adopt-sqlc-golang-migrate-tiered-testing.md`, `docs/adr/ADR-004-adopt-ulid-for-transaction-identifiers.md`
+- Related ADRs: `docs/adr/ADR-003-adopt-sqlc-golang-migrate-tiered-testing.md`, `docs/adr/ADR-004-adopt-ulid-for-transaction-identifiers.md`, `docs/adr/ADR-005-enable-server-transport-with-embedded-architecture.md`
+- Related API Spec: `docs/api/openapi.yaml`
 
 ## Context
 This TRD translates PRD-001 into verifiable technical requirements for a CLI-first personal finance MVP focused on fast daily logging, category-based budgeting, simple reporting, optional initial balance, and privacy-first local-only storage.
 
+Per ADR-005, the CLI communicates with business logic through an embedded HTTP server running in the same process. The CLI acts as a thin client making HTTP requests to localhost. All persistence and domain logic reside behind the HTTP API.
+
 Related PRD: `docs/prd/001-infinita-personal-finance-app.md`
+Related API Spec: `docs/api/openapi.yaml`
 
 ## Technical Goals
 - Provide a deterministic and testable CLI command system for core flows: add, list/filter, budget, and report.
@@ -24,6 +28,8 @@ Related PRD: `docs/prd/001-infinita-personal-finance-app.md`
 - Guarantee calculation accuracy for budgets and summaries through automated tests.
 - Support optional initial balance as starting point for balance summaries.
 - Keep storage behavior explicit in CLI settings with local mode fixed for MVP.
+- Embed an HTTP server within the CLI process for clean transport separation (ADR-005).
+- Ensure CLI-server communication uses localhost HTTP with JSend-style response format.
 
 ## Scope
 ### In Scope
@@ -32,6 +38,10 @@ Related PRD: `docs/prd/001-infinita-personal-finance-app.md`
 - Domain services for budget tracking and daily/monthly reporting.
 - English-only CLI copy standards and error contract.
 - Automated test suite for functional and non-functional acceptance criteria.
+- Embedded HTTP server (stdlib net/http) for CLI communication (ADR-005).
+- REST API endpoints for all business operations (OpenAPI spec at docs/api/openapi.yaml).
+- JSend-style response format with per-field per-rule error codes.
+- Server lifecycle management (auto-start/stop with CLI process, health check endpoint).
 
 ### Out of Scope
 - Bank/e-wallet integrations.
@@ -40,8 +50,8 @@ Related PRD: `docs/prd/001-infinita-personal-finance-app.md`
 - Investment/tax/bookkeeping advanced features.
 - AI insights.
 - Transaction edit/delete flows for MVP.
-- Production server transport exposure (HTTP/gRPC) in MVP release.
-- Server package separation/scaffolding (`cmd/server`, `internal/transport/server`) in current MVP implementation; this is deferred to roadmap.
+- Remote server deployment or TLS/mutual authentication for MVP.
+- External API exposure beyond localhost for MVP.
 
 ## Requirements Mapping
 | PRD Requirement | Technical Requirement(s) |
@@ -55,17 +65,21 @@ Related PRD: `docs/prd/001-infinita-personal-finance-app.md`
 | PRD-FR-013, PRD-FR-016 | TRD-CLI-006, TRD-DATA-003, TRD-INF-003, TRD-INF-004, TRD-API-004 |
 | PRD-FR-014 | TRD-DATA-005 |
 | PRD-FR-015 | TRD-CLI-007, TRD-DOM-005, TRD-DATA-004, TRD-API-005 |
+| PRD-FR-017 | TRD-SRV-001, TRD-SRV-002, TRD-SRV-003, TRD-SRV-004 |
+| PRD-FR-018 | TRD-CLI-011, TRD-CLI-012, TRD-SRV-005 |
 | PRD-NFR-001 | TRD-VAL-001 |
 | PRD-NFR-002 | TRD-SEC-001, TRD-SEC-002 |
 | PRD-NFR-003 | TRD-QA-001 |
 | PRD-NFR-004 | TRD-NFR-001 |
 | PRD-NFR-005 | TRD-OBS-001, TRD-OBS-002, TRD-OBS-003 |
+| PRD-NFR-006 | TRD-SRV-006 |
 
 Traceability note:
-- `TRD-ARCH-001` to `TRD-ARCH-006` and `TRD-TECH-001` to `TRD-TECH-007` are cross-cutting implementation constraints derived from architecture decisions (ADR) and stack selection. They are intentionally not modeled as one-to-one mappings to a single PRD requirement.
+- `TRD-ARCH-001` to `TRD-ARCH-007` and `TRD-TECH-001` to `TRD-TECH-007` are cross-cutting implementation constraints derived from architecture decisions (ADR) and stack selection. They are intentionally not modeled as one-to-one mappings to a single PRD requirement.
+- `TRD-SRV-001` to `TRD-SRV-010` are derived from ADR-005 (enable server transport with embedded architecture) and apply to the HTTP server implementation.
 
 ## Architecture Overview
-The MVP is a CLI application with local-only persistence and clear boundaries:
+The MVP is a CLI application with an embedded HTTP server and local-only persistence. The CLI acts as a thin client communicating with the server via localhost HTTP (ADR-005).
 
 This project adopts **Hexagonal (Ports & Adapters)** architecture adapted from `go-clean-arch-poc`:
 
@@ -79,8 +93,8 @@ This project adopts **Hexagonal (Ports & Adapters)** architecture adapted from `
 
 3. **Transport Layer (Adapters)**
    - **CLI adapter** for command parsing and terminal rendering.
-   - **Server adapter** is roadmap-only for future API exposure.
-   - Current MVP implementation uses CLI adapter only.
+   - **Server adapter** (HTTP handlers) for REST API exposure.
+   - CLI communicates with Server adapter via localhost HTTP.
 
 4. **Infrastructure Layer (Output Port Implementations)**
    - SQLite repositories and other runtime adapters (config, observability, analytics emitter if enabled).
@@ -97,7 +111,8 @@ Required directory layout for this project:
 ```text
 .
 ├── cmd/
-│   └── cli/                                    # CLI entrypoint
+│   ├── cli/                                    # CLI entrypoint
+│   └── server/                                 # Standalone server entrypoint (dev use)
 ├── internal/
 │   ├── domain/
 │   │   ├── entity/
@@ -112,7 +127,9 @@ Required directory layout for this project:
 │   │   ├── dto/
 │   │   └── validation/
 │   ├── transport/
-│   │   └── cli/                                # CLI handlers/commands/presenter
+│   │   ├── cli/                                # CLI handlers/commands/presenter
+│   │   ├── client/                             # HTTP client for CLI-to-server communication
+│   │   └── server/                              # HTTP handlers/router/DTOs for REST API
 │   └── infrastructure/
 │       ├── database/
 │       │   └── sqlite/
@@ -146,15 +163,14 @@ Required directory layout for this project:
 ```
 
 Notes:
-- MVP release artifact is CLI-only (`cmd/cli`).
+- Primary entry point is CLI (`cmd/cli`) which embedsan HTTP server goroutine.
+- The standalone server entry point (`cmd/server`) is optional and intended for development/testing.
 - Storage for MVP remains local SQLite only.
+- CLI communicates with business logic via HTTP requests to embedded server (see ADR-005).
 - sqlc generated code (`sqlc/`) is committed to version control for build reproducibility.
 - Migration files serve dual purpose: golang-migrate for schema evolution and sqlc schema input for query validation.
 - sqlc query files (`queries/`) contain raw SQL with `-- name:` annotations; running `sqlc generate` produces output in `sqlc/`.
 - Repository implementations wrap sqlc-generated code and map sqlc types to domain types at the infrastructure boundary.
-
-Roadmap (post-MVP target):
-- Add `cmd/server` entrypoint and `internal/transport/server` adapter with the same application use cases and contracts used by CLI.
 
 ## Technical Diagrams
 - Mermaid source: `docs/diagrams/trd/001-trd-system-architecture.mmd`
@@ -168,12 +184,25 @@ Roadmap (post-MVP target):
 - `TRD-ARCH-001`: Golang implementation for current MVP must separate modules/packages for `cli` (command adapter) and `application` (usecase + ports), with `domain` as core business rules.
 - `TRD-ARCH-002`: `cli` layer must depend on `application` input ports/interfaces and must not access persistence adapters directly.
 - `TRD-ARCH-003`: Business rules must reside in `domain` + `application` layers, and these layers must not import CLI transport packages.
-- `TRD-ARCH-004`: Server transport/package separation is roadmap-only and not required for current MVP implementation.
-- `TRD-ARCH-005`: Current MVP package layout must follow Hexagonal layering for implemented parts: `domain`, `application` (usecase + ports), `transport` (cli), and `infrastructure` (sqlite/config/observability adapters).
+- `TRD-ARCH-004`: Server transport adapter (`internal/transport/server`) must be implemented for HTTP API exposure to CLI.
+- `TRD-ARCH-005`: Current MVP package layout must follow Hexagonal layering for implemented parts: `domain`, `application` (usecase + ports), `transport` (cli, client, server), and `infrastructure` (sqlite/config/observability adapters).
 - `TRD-ARCH-006`: Dependency direction must be enforced so that `domain` and `application` are framework-agnostic and import no transport/infrastructure implementation packages.
+- `TRD-ARCH-007`: CLI must not import infrastructure packages directly. All CLI-to-business-logic communication must go through the HTTP client to the embedded server.
+
+### Server Transport / HTTP API
+- `TRD-SRV-001`: The embedded HTTP server must use Go stdlib `net/http` ServeMux with method-based routing (Go 1.22+). No external HTTP framework dependency.
+- `TRD-SRV-002`: Server must listen on a random available port on localhost (127.0.0.1) only. Port must not be exposed to external networks.
+- `TRD-SRV-003`: Server must auto-start as a goroutine when CLI launches and auto-stop on CLI exit. Graceful shutdown must complete within 5 seconds.
+- `TRD-SRV-004`: Server must expose a `/health` endpoint that returns HTTP 200 when ready. CLI must poll this endpoint with timeout before executing commands.
+- `TRD-SRV-005`: CLI must communicate with business logic exclusively through HTTP requests to the embedded server. Direct repository access from CLI is forbidden.
+- `TRD-SRV-006`: Server startup must complete within 5 seconds to avoid perceptible CLI latency (PRD-NFR-006).
+- `TRD-SRV-007`: All HTTP responses must follow JSend-style format: `{status: "success"|"fail"|"error", data?: any, message?: string, code?: string, meta?: object}`.
+- `TRD-SRV-008`: Validation errors must return `{status: "fail", data: [ErrorObject]}` where `data` is an array of `{code, message, field?, hint?}` objects.
+- `TRD-SRV-009`: Server errors must return `{status: "error", code: string, message: string, meta: null}`.
+- `TRD-SRV-010`: API paths must be flat style without version prefix (e.g., `/transactions`, `/categories`, `/budgets`). See OpenAPI spec for complete endpoint list.
 
 ### Frontend (CLI)
-- `TRD-CLI-001`: The system must provide a command to create transactions with required inputs: `type`, `amount`, `category`, `date`; `description` is optional. Parsed amount input must be normalized into `amountMinor` (integer minor units) before persistence using the strict normalization rules defined in this document.
+- `TRD-CLI-001`: The system must provide a command to create transactions with required inputs: `type`, `amount`, `category`, `date`; `description` is optional. CLI must normalize monetary input to `amountMinor` (integer minor units) before sending HTTP request to server. Server-side validation enforces strict rules per TRD-VAL-001.
 - `TRD-CLI-002`: The system must provide commands to list default categories and create custom categories.
 - `TRD-CLI-003`: The system must provide commands to list transactions and filter by category.
 - `TRD-CLI-004`: The system must provide commands to set monthly budget per category and show remaining budget and over-limit status.
@@ -183,6 +212,8 @@ Roadmap (post-MVP target):
 - `TRD-CLI-008`: Transaction listing command must support pagination via `limit` and `offset`, with defaults `limit=50`, `offset=0`, and maximum `limit=500`.
 - `TRD-CLI-009`: CLI process exit codes must be stable: `0` for success, `2` for validation/domain input errors, and `3` for runtime/storage errors.
 - `TRD-CLI-010`: MVP command surface must expose canonical initial-balance management commands under settings: `settings set-initial-balance` to set the value explicitly and `settings reset-initial-balance` to reset the persisted value to `0`.
+- `TRD-CLI-011`: CLI must use an HTTP client (`internal/transport/client`) to communicate with the embedded server. All commands must serialize input to JSON, make HTTP requests to localhost, and deserialize responses before rendering output.
+- `TRD-CLI-012`: CLI must map HTTP response status codes to exit codes: HTTP 2xx → exit 0, HTTP 4xx → exit 2, HTTP 5xx → exit 3. Validation errors in JSend `fail` response must be formatted for terminal output.
 - `TRD-UX-001`: All help text, success output, and validation/runtime errors must be in English and use a single approved terminology glossary.
 
 ### Backend / Domain
@@ -225,9 +256,9 @@ Roadmap (post-MVP target):
 
 ### Technology Stack
 - `TRD-TECH-001`: The MVP CLI must be implemented in **Golang**.
-- `TRD-TECH-002`: The project must target a stable Go release line (minimum `go 1.24`) and lock module dependencies via `go.mod`/`go.sum`.
-- `TRD-TECH-003`: Recommended package layout must keep `cli` adapter separate from domain/application core and persistence packages.
-- `TRD-TECH-004`: Roadmap target is to add separate server entrypoint (`cmd/server`) and transport adapter (`internal/transport/server`) when server exposure is prioritized.
+- `TRD-TECH-002`: The project must target a stable Go release line (minimum `go 1.22`) and lock module dependencies via `go.mod`/`go.sum`. Go 1.22+ is required for ServeMux method-based routing.
+- `TRD-TECH-003`: Package layout must follow hexagonal layering: `domain`, `application` (usecase + ports), `transport` (cli, client, server), and `infrastructure` (sqlite/config/observability adapters).
+- `TRD-TECH-004`: HTTP server must use Go stdlib `net/http` ServeMux with method-based routing (Go 1.22+). No external HTTP framework dependency per ADR-005.
 - `TRD-TECH-005`: SQL-to-Go code generation must use **sqlc** (sqlc.dev). Raw SQL queries are written in `.sql` files with `-- name:` annotations; sqlc generates type-safe Go structs, methods, and an optional `Querier` interface. Generated code must reside in the infrastructure layer and must never be imported by domain or application layers. Repository implementations wrap sqlc-generated code and perform type mapping at the infrastructure boundary. See ADR-003.
 - `TRD-TECH-006`: Database schema migration must use **golang-migrate** (`github.com/golang-migrate/migrate/v4`). Migration files use sequential versioning with up/down pairs. Migrations must be embedded in the CLI binary via `embed.FS` + `iofs` source driver for single-binary distribution. Migrations must run automatically on application startup. See ADR-003.
 - `TRD-TECH-007`: SQLite driver must be `mattn/go-sqlite3` for consistency with golang-migrate's `database/sqlite3` driver. Build requires CGO (C compiler). sqlc generates code against the `database/sql` interface; driver choice is a runtime concern.
@@ -267,6 +298,31 @@ CLI execution behavior:
 - `list` command default pagination: `limit=50`, `offset=0`; max `limit=500`.
 - Exit codes are fixed: `0` success, `2` validation/domain input error, `3` runtime/storage error.
 - All CLI commands that accept monetary input must normalize using one shared parser/normalizer function before calling domain services.
+
+### HTTP API Endpoints
+The embedded HTTP server exposes REST endpoints for all business operations. Complete API specification is in `docs/api/openapi.yaml`.
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/health` | GET | Health check (returns HTTP 200 when server ready) |
+| `/transactions` | POST | Create a transaction |
+| `/transactions` | GET | List transactions with filters and pagination |
+| `/categories` | GET | List all categories |
+| `/categories` | POST | Create a custom category |
+| `/budgets` | POST | Set monthly budget for a category |
+| `/budgets/status` | GET | Get budget status for a month |
+| `/reports/daily` | GET | Get daily summary |
+| `/reports/monthly` | GET | Get monthly summary |
+| `/settings` | GET | Get current settings |
+| `/settings/analytics` | PUT | Update analytics opt-in |
+| `/settings/report-timezone` | PUT | Update report timezone |
+| `/settings/initial-balance` | PUT | Set initial balance |
+| `/settings/initial-balance` | DELETE | Reset initial balance to 0 |
+
+Request/Response format:
+- All requests use JSON body (POST/PUT).
+- All responses follow JSend style: `{status, data?, message?, code?, meta?}`.
+- See `docs/api/openapi.yaml` for complete schema definitions.
 
 ### Monetary Input Normalization (Shared)
 Shared monetary parsing/normalization rules apply to all CLI amount inputs:
@@ -428,8 +484,9 @@ Normalization and validation:
 - Initial balance allows zero (`>= 0`) and rejects negative values.
 
 ## Dependencies
-- Golang toolchain (`go 1.24` or newer).
+- Golang toolchain (`go 1.22` or newer for ServeMux method-based routing).
 - Selected Go CLI library (or standard library `flag`) for command parsing and help output.
+- Go stdlib `net/http` for embedded HTTP server (no external framework per ADR-005).
 - SQLite embedded database engine (`mattn/go-sqlite3`, CGO).
 - sqlc CLI tool (`github.com/sqlc-dev/sqlc`) for SQL-to-Go code generation.
 - golang-migrate (`github.com/golang-migrate/migrate/v4`) for schema migration with `database/sqlite3` and `source/iofs` drivers.
@@ -444,10 +501,12 @@ Normalization and validation:
 - Category normalization risk (case/whitespace mismatches) affecting filter and budget accuracy.
 - Permission portability risk across operating systems.
 - Monetary precision risk if any implementation path bypasses integer minor-unit arithmetic and uses floating-point.
+- Embedded server lifecycle risk: startup latency, health check timeout, graceful shutdown handling.
+- HTTP overhead risk for local-only communication (mitigated by localhost-only binding).
 
 ## Testing Strategy
 
-The MVP testing strategy follows a three-tier approach aligned with hexagonal architecture layers. Each tier has distinct scope, isolation boundaries, and tooling. See ADR-003 for rationale.
+The MVP testing strategy follows a four-tier approach aligned with hexagonal architecture layers. Each tier has distinct scope, isolation boundaries, and tooling. See ADR-003 for rationale.
 
 ### Tier 1: Repository Integration Tests
 
@@ -466,6 +525,14 @@ The MVP testing strategy follows a three-tier approach aligned with hexagonal ar
 - **Pattern**: Use generated mocks of output port interfaces. Verify correct orchestration, domain rule enforcement, and error handling. Assert interactions (calls, arguments) on mocks.
 - **Key focus**: Validation logic (TRD-VAL-001 to TRD-VAL-003), budget math (TRD-DOM-001), summary computation (TRD-DOM-002, TRD-DOM-003), closing balance (TRD-DOM-005).
 
+### Tier 2.5: HTTP Handler Tests
+
+- **Scope**: HTTP request/response handling, routing, JSend response format, error mapping, DTO serialization.
+- **Isolation**: Use `httptest` recorder with real handler functions. Mock application input port interfaces (use cases). No database access.
+- **Location**: `internal/transport/server/*_test.go`
+- **Pattern**: Use `httptest.NewRequest` and `httptest.NewRecorder` to test handlers directly. Mock use case interfaces to verify correct method calls with expected DTOs. Assert HTTP status codes, response body structure, and JSend format compliance.
+- **Key focus**: HTTP method routing, endpoint paths, request parsing, response shaping (TRD-SRV-007 to TRD-SRV-010), validation error formatting (TRD-VAL-002).
+
 ### Tier 3: Command Integration Tests (Real CLI Execution)
 
 - **Scope**: Full CLI command flow — argument parsing, validation, service orchestration, output rendering, exit codes.
@@ -477,12 +544,14 @@ The MVP testing strategy follows a three-tier approach aligned with hexagonal ar
 ### Additional Test Categories
 
 Current implementation note:
-- The automated suite currently covers repository integration tests, service unit tests, and command integration tests.
+- The automated suite currently covers repository integration tests, service unit tests, HTTP handler tests, and command integration tests.
 - Reliability runs (≥ 1,000 executions), performance benchmarks, and very-large-dataset validation are planned hardening work and may be completed after the baseline MVP feature flows are stabilized.
 
 - Contract tests for internal service responses (`TRD-API-001` to `TRD-API-003`).
 - Contract tests for settings and initialization contracts (`TRD-API-004`, `TRD-API-005`).
+- Contract tests for HTTP API endpoints (`TRD-SRV-007` to `TRD-SRV-010`) matching OpenAPI spec.
 - Contract tests for error schema (`TRD-VAL-002`) and analytics payload constraints (`TRD-OBS-003`).
+- Server lifecycle tests: startup, health check poll, graceful shutdown (`TRD-SRV-003`, `TRD-SRV-004`).
 - Performance test scenarios for transaction entry time and report generation.
 - Reliability scenario runner with ≥ 1,000 executions for core flows (`add`, `list`, `budget`, `report`) per `TRD-NFR-002`.
 - Security checks for local permission mode and telemetry-off default behavior.

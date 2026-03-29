@@ -1,16 +1,22 @@
 sequenceDiagram
     actor User
     participant CLI as CLI Command Parser
+    participant CLIENT as HTTP Client
+    participant SERVER as HTTP Server
     participant SET as Settings Service
     participant REP as Report Service
     participant TREPO as Transaction Repository
     participant IREPO as Initial Balance Repository
 
     User->>CLI: report monthly --month 2026-03
-    CLI->>SET: Get reportTimezone
-    SET-->>CLI: Asia/Jakarta (example)
+    
+    CLI->>CLIENT: Serialize request to JSON
+    CLIENT->>SERVER: GET /reports/monthly?month=2026-03 (localhost HTTP)
 
-    CLI->>REP: Build monthly report request(period, month, timezone)
+    SERVER->>SET: Get reportTimezone
+    SET-->>SERVER: Asia/Jakarta (example)
+
+    SERVER->>REP: Build monthly report request(period, month, timezone)
     REP->>TREPO: Load transactions in month bucket (for period totals)
     TREPO-->>REP: monthTransactions
 
@@ -24,5 +30,13 @@ sequenceDiagram
     REP->>REP: Compute closingBalanceMinor (cumulative to month end)
     REP->>REP: Rank topCategories by amountMinor DESC, normalized key ASC
 
-    REP-->>CLI: Monthly report contract
+    REP-->>SERVER: Monthly report contract
+    SERVER-->>CLIENT: HTTP 200 + JSend success
+    CLIENT-->>CLI: Deserialize response
     CLI-->>User: Render English monthly summary
+
+    alt Server error
+        SERVER-->>CLIENT: HTTP 5xx + JSend error
+        CLIENT-->>CLI: Deserialize error
+        CLI-->>User: Show server error message (exit code 3)
+    end

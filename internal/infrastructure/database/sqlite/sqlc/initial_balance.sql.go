@@ -27,13 +27,14 @@ func (q *Queries) GetInitialBalance(ctx context.Context) (InitialBalance, error)
 	return i, err
 }
 
-const upsertInitialBalance = `-- name: UpsertInitialBalance :exec
+const upsertInitialBalance = `-- name: UpsertInitialBalance :one
 INSERT INTO initial_balance (id, initial_balance_minor, currency_code, initialized_at)
-VALUES (1, ?, ?, datetime('now'))
+VALUES (1, ?, ?, strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
 ON CONFLICT(id) DO UPDATE SET
     initial_balance_minor = excluded.initial_balance_minor,
     currency_code = excluded.currency_code,
-    initialized_at = datetime('now')
+    initialized_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+RETURNING id, initial_balance_minor, currency_code, initialized_at
 `
 
 type UpsertInitialBalanceParams struct {
@@ -41,7 +42,14 @@ type UpsertInitialBalanceParams struct {
 	CurrencyCode        string `json:"currency_code"`
 }
 
-func (q *Queries) UpsertInitialBalance(ctx context.Context, arg UpsertInitialBalanceParams) error {
-	_, err := q.db.ExecContext(ctx, upsertInitialBalance, arg.InitialBalanceMinor, arg.CurrencyCode)
-	return err
+func (q *Queries) UpsertInitialBalance(ctx context.Context, arg UpsertInitialBalanceParams) (InitialBalance, error) {
+	row := q.db.QueryRowContext(ctx, upsertInitialBalance, arg.InitialBalanceMinor, arg.CurrencyCode)
+	var i InitialBalance
+	err := row.Scan(
+		&i.ID,
+		&i.InitialBalanceMinor,
+		&i.CurrencyCode,
+		&i.InitializedAt,
+	)
+	return i, err
 }

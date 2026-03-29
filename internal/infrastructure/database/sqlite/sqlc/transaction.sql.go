@@ -9,6 +9,19 @@ import (
 	"context"
 )
 
+const countTransactions = `-- name: CountTransactions :one
+SELECT COUNT(*) FROM transactions t
+JOIN categories c ON c.id = t.category_id
+WHERE (?1 IS NULL OR c.normalized_key = ?1)
+`
+
+func (q *Queries) CountTransactions(ctx context.Context, dollar_1 interface{}) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countTransactions, dollar_1)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createTransaction = `-- name: CreateTransaction :exec
 INSERT INTO transactions (id, type, amount_minor, currency_code, category_id, category_name_snapshot, date, description)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?)

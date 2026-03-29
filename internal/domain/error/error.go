@@ -48,6 +48,7 @@ var (
 	ErrUnknownCategory        = New("UNKNOWN_CATEGORY", "category does not exist or could not be found")
 	ErrDuplicateCategory      = New("DUPLICATE_CATEGORY", "category already exists")
 	ErrInvalidStorageMode     = New("STORAGE_MODE_UNAVAILABLE", "only local storage mode is supported in MVP")
+	ErrInvalidCurrency        = New("INVALID_CURRENCY", "currencyCode must be 'IDR' in MVP")
 	ErrInvalidTransactionType = New("INVALID_TYPE", "type must be either 'income' or 'expense'")
 	ErrMissingCommand         = New("MISSING_COMMAND", "a command is required")
 	ErrUnknownCommand         = New("UNKNOWN_COMMAND", "the requested command is not recognized")

@@ -27,14 +27,20 @@ func TestSettingsUseCase_ShowReturnsRepositoryValues(t *testing.T) {
 }
 
 func TestSettingsUseCase_SetInitialBalanceValidatesAmount(t *testing.T) {
-	repo := &fakeInitialBalanceRepository{}
+	repo := &fakeInitialBalanceRepository{initial: entity.InitialBalance{
+		InitialBalanceMinor: 10,
+		CurrencyCode:        "IDR",
+		InitializedAt:       "2026-03-29T10:00:00Z",
+	}}
 	uc := usecase.NewSettingsUseCase(&fakeSettingsRepository{}, repo)
 
-	require.NoError(t, uc.SetInitialBalance(context.Background(), 10))
+	initial, err := uc.SetInitialBalance(context.Background(), 10)
+	require.NoError(t, err)
 	require.Equal(t, int64(10), repo.amount)
 	require.Equal(t, "IDR", repo.currency)
+	require.Equal(t, repo.setResult, initial)
 
-	err := uc.SetInitialBalance(context.Background(), -1)
+	_, err = uc.SetInitialBalance(context.Background(), -1)
 	assertdomain.Code(t, err, domainerror.ErrInvalidAmount.Code)
 }
 
@@ -156,14 +162,19 @@ func TestTransactionUseCase_AddTransaction(t *testing.T) {
 	categoryRepo := &fakeCategoryRepository{category: entity.Category{ID: 3, Name: "Food"}}
 	uc := usecase.NewTransactionUseCase(txRepo, categoryRepo)
 
-	require.NoError(t, uc.AddTransaction(context.Background(), "income", 5000, "Food", "2024-01-05", "ok"))
+	_, err := uc.AddTransaction(context.Background(), "income", 5000, "Food", "2024-01-05", "ok")
+	require.NoError(t, err)
 	require.Equal(t, int64(5000), txRepo.created.AmountMinor)
 	require.Equal(t, "Food", txRepo.created.CategoryNameSnapshot)
 
-	assertdomain.Code(t, uc.AddTransaction(context.Background(), "transfer", 1000, "Food", "2024-01-05", ""), domainerror.ErrInvalidTransactionType.Code)
-	assertdomain.Code(t, uc.AddTransaction(context.Background(), "income", 0, "Food", "2024-01-05", ""), domainerror.ErrInvalidAmount.Code)
-	assertdomain.Code(t, uc.AddTransaction(context.Background(), "income", 1000, "", "2024-01-05", ""), domainerror.ErrInvalidCategory.Code)
-	assertdomain.Code(t, uc.AddTransaction(context.Background(), "income", 1000, "Food", "bad-date", ""), domainerror.ErrInvalidDate.Code)
+	_, err = uc.AddTransaction(context.Background(), "transfer", 1000, "Food", "2024-01-05", "")
+	assertdomain.Code(t, err, domainerror.ErrInvalidTransactionType.Code)
+	_, err = uc.AddTransaction(context.Background(), "income", 0, "Food", "2024-01-05", "")
+	assertdomain.Code(t, err, domainerror.ErrInvalidAmount.Code)
+	_, err = uc.AddTransaction(context.Background(), "income", 1000, "", "2024-01-05", "")
+	assertdomain.Code(t, err, domainerror.ErrInvalidCategory.Code)
+	_, err = uc.AddTransaction(context.Background(), "income", 1000, "Food", "bad-date", "")
+	assertdomain.Code(t, err, domainerror.ErrInvalidDate.Code)
 }
 
 func TestTransactionUseCase_ListTransactions(t *testing.T) {
@@ -172,7 +183,7 @@ func TestTransactionUseCase_ListTransactions(t *testing.T) {
 
 	got, err := uc.ListTransactions(context.Background(), nil, -1, -5)
 	require.NoError(t, err)
-	require.Equal(t, []entity.Transaction{{ID: "x"}}, got)
+	require.Equal(t, []entity.Transaction{{ID: "x"}}, got.Transactions)
 	require.Equal(t, 50, txRepo.listLimit)
 	require.Equal(t, 0, txRepo.listOffset)
 
@@ -180,6 +191,18 @@ func TestTransactionUseCase_ListTransactions(t *testing.T) {
 	_, err = uc.ListTransactions(context.Background(), &cat, 600, 0)
 	require.NoError(t, err)
 	require.Equal(t, 500, txRepo.listLimit)
+}
+
+func TestTransactionUseCase_ListTransactionsReturnsTotal(t *testing.T) {
+	txRepo := &recordingTransactionRepository{
+		listResponse:  []entity.Transaction{{ID: "x"}},
+		countResponse: 42,
+	}
+	uc := usecase.NewTransactionUseCase(txRepo, &fakeCategoryRepository{})
+
+	result, err := uc.ListTransactions(context.Background(), nil, 10, 0)
+	require.NoError(t, err)
+	require.Equal(t, 42, result.Total)
 }
 
 type fakeSettingsRepository struct {
@@ -196,19 +219,27 @@ func (*fakeSettingsRepository) SetAnalyticsOptIn(context.Context, bool) error   
 func (*fakeSettingsRepository) GetAnalyticsOptIn(context.Context) (bool, error) { return false, nil }
 
 type fakeInitialBalanceRepository struct {
-	amount   int64
-	currency string
-	initial  entity.InitialBalance
+	amount    int64
+	currency  string
+	initial   entity.InitialBalance
+	setResult entity.InitialBalance
 }
 
 func (f *fakeInitialBalanceRepository) Get(context.Context) (entity.InitialBalance, error) {
 	return f.initial, nil
 }
 
-func (f *fakeInitialBalanceRepository) Set(_ context.Context, amount int64, currency string) error {
+func (f *fakeInitialBalanceRepository) Set(_ context.Context, amount int64, currency string) (entity.InitialBalance, error) {
 	f.amount = amount
 	f.currency = currency
-	return nil
+	if f.setResult.InitializedAt == "" {
+		f.setResult = entity.InitialBalance{
+			InitialBalanceMinor: amount,
+			CurrencyCode:        currency,
+			InitializedAt:       "2026-03-29 10:00:00",
+		}
+	}
+	return f.setResult, nil
 }
 
 type fakeBudgetRepository struct {
@@ -258,6 +289,10 @@ func (*fakeTransactionRepository) List(context.Context, *string, int, int) ([]en
 	return nil, nil
 }
 
+func (*fakeTransactionRepository) Count(context.Context, *string) (int, error) {
+	return 0, nil
+}
+
 func (f *fakeTransactionRepository) SumTotalsForDay(context.Context, string) (int64, int64, error) {
 	return f.dailyIncome, f.dailyExpense, nil
 }
@@ -275,12 +310,13 @@ func (f *fakeTransactionRepository) TopCategoriesForMonth(context.Context, strin
 }
 
 type recordingTransactionRepository struct {
-	created      entity.Transaction
-	createErr    error
-	listLimit    int
-	listOffset   int
-	listCategory *string
-	listResponse []entity.Transaction
+	created       entity.Transaction
+	createErr     error
+	listLimit     int
+	listOffset    int
+	listCategory  *string
+	listResponse  []entity.Transaction
+	countResponse int
 }
 
 func (r *recordingTransactionRepository) Create(_ context.Context, txn entity.Transaction) error {
@@ -312,4 +348,8 @@ func (*recordingTransactionRepository) SumCumulativeTotalsUpToDate(context.Conte
 
 func (*recordingTransactionRepository) TopCategoriesForMonth(context.Context, string) ([]entity.TopSpendingCategory, error) {
 	return nil, nil
+}
+
+func (r *recordingTransactionRepository) Count(context.Context, *string) (int, error) {
+	return r.countResponse, nil
 }

@@ -10,6 +10,11 @@ WHERE (?1 IS NULL OR c.normalized_key = ?1)
 ORDER BY t.date DESC, t.created_at DESC
 LIMIT ?2 OFFSET ?3;
 
+-- name: CountTransactions :one
+SELECT COUNT(*) FROM transactions t
+JOIN categories c ON c.id = t.category_id
+WHERE (?1 IS NULL OR c.normalized_key = ?1);
+
 -- name: SumTransactionTotalsForDay :one
 SELECT
     COALESCE(SUM(CASE WHEN type = 'income' THEN amount_minor ELSE 0 END), 0) AS income_total_minor,

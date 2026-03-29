@@ -1,6 +1,8 @@
 sequenceDiagram
     actor User
     participant CLI as CLI Command Parser
+    participant CLIENT as HTTP Client
+    participant SERVER as HTTP Server
     participant VAL as Validation Module
     participant CAT as Category Service/Repo
     participant TX as Transaction Service
@@ -11,18 +13,32 @@ sequenceDiagram
     CLI->>VAL: Validate required fields and amount/token rules
     VAL-->>CLI: Valid
 
-    CLI->>CAT: Verify category exists (default/custom)
-    CAT-->>CLI: Category found
+    CLI->>CLIENT: Serialize request to JSON
+    CLIENT->>SERVER: POST /transactions (localhost HTTP)
+    
+    SERVER->>VAL: Validate request body
+    VAL-->>SERVER: Valid
 
-    CLI->>TX: Create transaction request (normalize amount to amountMinor)
+    SERVER->>CAT: Verify category exists (default/custom)
+    CAT-->>SERVER: Category found
+
+    SERVER->>TX: Create transaction request (normalize amount to amountMinor)
     TX->>TREPO: Save transaction entity
     TREPO->>STORE: Persist local-only data
     STORE-->>TREPO: Saved
     TREPO-->>TX: Transaction ID + metadata
-    TX-->>CLI: Success response
+    TX-->>SERVER: Success response
+    SERVER-->>CLIENT: HTTP 200 + JSend success
+    CLIENT-->>CLI: Deserialize response
     CLI-->>User: English confirmation output
 
     alt Invalid input
         VAL-->>CLI: {code, message, field?, hint?}
-        CLI-->>User: Show structured error in English
+        CLI-->>User: Show structured error in English (exit code 2)
+    end
+
+    alt Server error
+        SERVER-->>CLIENT: HTTP 5xx + JSend error
+        CLIENT-->>CLI: Deserialize error
+        CLI-->>User: Show server error message (exit code 3)
     end

@@ -1,41 +1,49 @@
 flowchart LR
     U[User] --> CLI[CLI Layer\nCommands: add/list/budget/report/settings]
 
+    subgraph TRANSPORT["Transport Layer"]
+        CLIENT[HTTP Client\nSerialize CLI input to JSON\nDeserialize server response]
+        SERVER[HTTP Server\nREST API Handlers\nJSend Response Format\nlocalhost only]
+    end
+
     subgraph APP["Application and Domain Layer"]
-      TX[Transaction Service]
-      CAT[Category Service]
-      BUD[Budget Service]
-      REP[Report Service]
-      SET[Settings Service]
+        TX[Transaction Service]
+        CAT[Category Service]
+        BUD[Budget Service]
+        REP[Report Service]
+        SET[Settings Service]
     end
 
     subgraph CROSS["Cross-Cutting Modules"]
-      VAL[Validation Module]
-      TIME[Time and Timezone Utility]
-      ANA[Analytics Module\nOpt-in only]
+        VAL[Validation Module]
+        TIME[Time and Timezone Utility]
+        ANA[Analytics Module\nOpt-in only]
     end
 
     %% PORTS sits at the boundary between Application/Domain and Infrastructure.
     %% Application services depend on these interfaces; Infrastructure implements them.
     subgraph PORTS["Output Port Interfaces (Application Layer Boundary)"]
-      TREPO[(Transaction Repository)]
-      CREPO[(Category Repository)]
-      BREPO[(Budget Repository)]
-      IREPO[(Initial Balance Repository)]
-      SREPO[(Settings Repository)]
+        TREPO[(Transaction Repository)]
+        CREPO[(Category Repository)]
+        BREPO[(Budget Repository)]
+        IREPO[(Initial Balance Repository)]
+        SREPO[(Settings Repository)]
     end
 
     subgraph PERSIST["Persistence Layer - Local Only"]
-      REPO[Repository Implementations\nImplements output port interfaces]
-      STORE[(SQLite Local DB\nOn-device)]
+        REPO[Repository Implementations\nImplements output port interfaces]
+        STORE[(SQLite Local DB\nOn-device)]
     end
 
-    CLI --> VAL
-    CLI --> TX
-    CLI --> CAT
-    CLI --> BUD
-    CLI --> REP
-    CLI --> SET
+    CLI --> CLIENT
+    CLIENT --> SERVER
+
+    SERVER --> VAL
+    SERVER --> TX
+    SERVER --> CAT
+    SERVER --> BUD
+    SERVER --> REP
+    SERVER --> SET
 
     REP --> TIME
     REP --> TREPO
@@ -56,4 +64,4 @@ flowchart LR
     REPO --> STORE
 
     SET -. analyticsOptIn .-> ANA
-    ANA -. emits anonymous events only .-> CLI
+    ANA -. emits anonymous events only .-> SERVER

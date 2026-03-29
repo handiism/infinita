@@ -69,6 +69,18 @@ func (r *TransactionRepository) List(ctx context.Context, categoryKey *string, l
 	return result, nil
 }
 
+func (r *TransactionRepository) Count(ctx context.Context, categoryKey *string) (int, error) {
+	var key interface{}
+	if categoryKey != nil {
+		key = *categoryKey
+	}
+	count, err := r.queries.CountTransactions(ctx, key)
+	if err != nil {
+		return 0, err
+	}
+	return int(count), nil
+}
+
 func parseSQLiteDateTime(value string) (time.Time, error) {
 	layouts := []string{
 		"2006-01-02 15:04:05",

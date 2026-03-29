@@ -6,13 +6,15 @@
 - Owner:
 - Reviewers:
 - Status: Draft
-- Version: 0.8
+- Version: 0.9
 - Created date: 2026-03-28
-- Last updated date: 2026-03-28
+- Last updated date: 2026-03-29
 - Related Documents:
   - `docs/prd/README.md`
   - `docs/trd/001-infinita-personal-finance-app-mvp-cli.md`
   - `docs/adr/ADR-002-defer-server-separation-to-roadmap.md`
+  - `docs/adr/ADR-005-enable-server-transport-with-embedded-architecture.md`
+  - `docs/api/openapi.yaml`
 
 ## Problem Statement
 Many individuals struggle to consistently track income, expenses, budgets, and financial summaries because existing tools are either too complex or not private enough.
@@ -32,49 +34,7 @@ This matters now because the MVP needs a simple, private, English-first workflow
 - Investment, tax, or advanced bookkeeping features.
 - AI-based spending insights in MVP.
 - GUI web or mobile dashboard in MVP.
-- Server transport/API exposure in MVP.
-
-## Target Users / Personas
-- **General individual users**: want to start tracking personal finances without complex accounting workflows.
-- **Budget-conscious users**: want category-level spending control versus monthly targets.
-- **Privacy-focused users**: want financial data control with local-only storage in MVP and no third-party data sharing.
-
-## User Stories / Use Cases
-1. **As a user**, I want to add income and expense transactions quickly so I can consistently log daily finances.
-2. **As a user**, I want to categorize transactions so I can understand where my money goes.
-3. **As a user**, I want to set monthly budgets by category so I can control spending.
-4. **As a user**, I want to view cashflow summaries and simple reports so I can understand my financial condition.
-5. **As a user**, I want the app interface to be in clear English so I can use commands and messages consistently.
-6. **As a user**, I want my data to remain private and secure so my financial information is protected.
-7. **As a user**, I want to optionally set an initial balance so my summaries can start from my real current financial position.
-8. **As a user**, I want to clearly see storage behavior in settings so I know my data is stored locally in MVP.
-
-## Main Flow Diagram
-- Mermaid source: `docs/diagrams/prd/001-prd-main-flow.mmd`
-
-## Scope
-### In Scope
-- Add income and expense transactions via CLI.
-- Store transactions locally on-device in MVP.
-- Support required transaction fields: type, amount, category, and date; description is optional.
-- Use fixed MVP currency `IDR` with decimal amount input allowed up to 2 fractional digits.
-- Support optional initial balance input for first-time setup or manual initialization.
-- Provide default categories and support custom categories.
-- Set and view monthly budget limits per category.
-- View daily summaries including income, expense, and net balance.
-- View monthly summaries including income, expense, net balance, top spending categories, and closing balance.
-- Provide English-only CLI help, output, and error messages with consistent terminology.
-- Support example CLI commands such as `add`, `list`, `budget`, and `report`; these examples illustrate the intended CLI interaction model and are not final command syntax.
-
-### Out of Scope
-- Editing transactions in MVP.
-- Deleting transactions in MVP.
 - Full cross-device synchronization in MVP.
-- Automated bank or e-wallet integrations.
-- Investment, tax, or advanced bookkeeping features.
-- AI-based spending insights in MVP.
-- GUI web or mobile dashboard in MVP.
-- Server transport/API exposure in MVP.
 
 ## Functional Requirements
 - `PRD-FR-001`: Users can add income transactions through the CLI.
@@ -93,6 +53,8 @@ This matters now because the MVP needs a simple, private, English-first workflow
 - `PRD-FR-014`: The MVP does not require bank integration.
 - `PRD-FR-015`: Users can set an optional initial balance, reset it back to `0` when needed, and the active value is used as the starting point for cumulative closing-balance calculations shown in summaries.
 - `PRD-FR-016`: CLI settings must clearly show that active storage mode in MVP is local.
+- `PRD-FR-017`: The system must provide an embedded HTTP server that auto-starts and auto-stops with the CLI process.
+- `PRD-FR-018`: The CLI must communicate with business logic exclusively through the embedded server REST API.
 
 ## Non-Functional Requirements
 - `PRD-NFR-001`: The system validates that transaction amount is greater than 0, supports up to 2 fractional digits, and rejects invalid input.
@@ -100,6 +62,7 @@ This matters now because the MVP needs a simple, private, English-first workflow
 - `PRD-NFR-003`: Core CLI flows represented by example commands such as `add`, `list`, `budget`, and `report` achieve at least a 99% success rate in defined MVP test scenarios.
 - `PRD-NFR-004`: New transaction entry completes within 15 seconds for familiar users.
 - `PRD-NFR-005`: No telemetry is enabled by default in MVP.
+- `PRD-NFR-006`: Embedded server startup must complete within 5 seconds to avoid perceptible CLI latency.
 
 ## Measurement & Privacy Strategy
 - Behavioral success metrics are measured only for users who explicitly opt in to anonymous analytics.
@@ -160,13 +123,14 @@ This matters now because the MVP needs a simple, private, English-first workflow
 - English-only command and output experience
 - Local-only storage in MVP
 - Optional initial balance setup
+- Embedded HTTP server (auto-managed by CLI)
+- REST API for all business operations (OpenAPI spec)
 
 **v1.1**
 - CSV and TXT report export
 - Expanded transaction filtering and search
 - Logging reminders
 - Local backup and restore
-- Server/API capability as a roadmap architecture milestone
 
 **v2.0**
 - Cross-device sync

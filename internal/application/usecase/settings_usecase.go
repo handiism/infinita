@@ -22,15 +22,16 @@ func (u *SettingsUseCase) Show(ctx context.Context) (entity.Settings, error) {
 	return u.settingsRepo.GetSettings(ctx)
 }
 
-func (u *SettingsUseCase) SetInitialBalance(ctx context.Context, amount int64) error {
+func (u *SettingsUseCase) SetInitialBalance(ctx context.Context, amount int64) (entity.InitialBalance, error) {
 	if amount < 0 {
-		return domainerror.ErrInvalidAmount
+		return entity.InitialBalance{}, domainerror.ErrInvalidAmount
 	}
 	return u.initialBalanceRepo.Set(ctx, amount, "IDR")
 }
 
 func (u *SettingsUseCase) ResetInitialBalance(ctx context.Context) error {
-	return u.initialBalanceRepo.Set(ctx, 0, "IDR")
+	_, err := u.initialBalanceRepo.Set(ctx, 0, "IDR")
+	return err
 }
 
 func (u *SettingsUseCase) SetAnalyticsOptIn(ctx context.Context, optIn bool) error {

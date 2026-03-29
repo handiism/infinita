@@ -28,6 +28,14 @@ func (r *InitialBalanceRepository) Get(ctx context.Context) (entity.InitialBalan
 	}, nil
 }
 
-func (r *InitialBalanceRepository) Set(ctx context.Context, amount int64, currency string) error {
-	return r.queries.UpsertInitialBalance(ctx, sqlc.UpsertInitialBalanceParams{InitialBalanceMinor: amount, CurrencyCode: currency})
+func (r *InitialBalanceRepository) Set(ctx context.Context, amount int64, currency string) (entity.InitialBalance, error) {
+	row, err := r.queries.UpsertInitialBalance(ctx, sqlc.UpsertInitialBalanceParams{InitialBalanceMinor: amount, CurrencyCode: currency})
+	if err != nil {
+		return entity.InitialBalance{}, fmt.Errorf("upsert initial balance: %w", err)
+	}
+	return entity.InitialBalance{
+		InitialBalanceMinor: row.InitialBalanceMinor,
+		CurrencyCode:        row.CurrencyCode,
+		InitializedAt:       row.InitializedAt,
+	}, nil
 }

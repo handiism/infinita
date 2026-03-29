@@ -3,6 +3,7 @@ package sqlite
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -19,8 +20,10 @@ func TestInitialBalanceRepository_GetAndSet(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int64(0), balance.InitialBalanceMinor)
 
-	require.NoError(t, repo.Set(ctx, 25000, "IDR"))
-	balance, err = repo.Get(ctx)
+	balance, err = repo.Set(ctx, 25000, "IDR")
 	require.NoError(t, err)
 	require.Equal(t, int64(25000), balance.InitialBalanceMinor)
+	require.Equal(t, "IDR", balance.CurrencyCode)
+	_, err = time.Parse(time.RFC3339, balance.InitializedAt)
+	require.NoError(t, err)
 }

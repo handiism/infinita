@@ -7,28 +7,30 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/handiism/infinita/internal/application/port/input"
 	"github.com/handiism/infinita/internal/domain/entity"
 	domainerror "github.com/handiism/infinita/internal/domain/error"
+	transportclient "github.com/handiism/infinita/internal/transport/client"
 	ucli "github.com/urfave/cli/v3"
 )
 
 type stubTransactionUseCase struct {
-	addFn  func(context.Context, string, int64, string, string, string) error
-	listFn func(context.Context, *string, int, int) ([]entity.Transaction, error)
+	addFn  func(context.Context, string, int64, string, string, string) (entity.Transaction, error)
+	listFn func(context.Context, *string, int, int) (input.TransactionListResult, error)
 }
 
-func (s stubTransactionUseCase) AddTransaction(ctx context.Context, entryType string, amountMinor int64, category string, date string, description string) error {
+func (s stubTransactionUseCase) AddTransaction(ctx context.Context, entryType string, amountMinor int64, category string, date string, description string) (entity.Transaction, error) {
 	if s.addFn != nil {
 		return s.addFn(ctx, entryType, amountMinor, category, date, description)
 	}
-	return nil
+	return entity.Transaction{}, nil
 }
 
-func (s stubTransactionUseCase) ListTransactions(ctx context.Context, category *string, limit, offset int) ([]entity.Transaction, error) {
+func (s stubTransactionUseCase) ListTransactions(ctx context.Context, category *string, limit, offset int) (input.TransactionListResult, error) {
 	if s.listFn != nil {
 		return s.listFn(ctx, category, limit, offset)
 	}
-	return nil, nil
+	return input.TransactionListResult{}, nil
 }
 
 type stubCategoryUseCase struct {
@@ -90,7 +92,7 @@ func (s stubReportUseCase) Monthly(ctx context.Context, month string) (entity.Mo
 
 type stubSettingsUseCase struct {
 	showFn                func(context.Context) (entity.Settings, error)
-	setInitialBalanceFn   func(context.Context, int64) error
+	setInitialBalanceFn   func(context.Context, int64) (entity.InitialBalance, error)
 	resetInitialBalanceFn func(context.Context) error
 	setAnalyticsOptInFn   func(context.Context, bool) error
 	setReportTimezoneFn   func(context.Context, string) error
@@ -103,11 +105,11 @@ func (s stubSettingsUseCase) Show(ctx context.Context) (entity.Settings, error) 
 	return entity.Settings{}, nil
 }
 
-func (s stubSettingsUseCase) SetInitialBalance(ctx context.Context, amount int64) error {
+func (s stubSettingsUseCase) SetInitialBalance(ctx context.Context, amount int64) (entity.InitialBalance, error) {
 	if s.setInitialBalanceFn != nil {
 		return s.setInitialBalanceFn(ctx, amount)
 	}
-	return nil
+	return entity.InitialBalance{}, nil
 }
 
 func (s stubSettingsUseCase) ResetInitialBalance(ctx context.Context) error {
@@ -156,15 +158,37 @@ func TestHelpers(t *testing.T) {
 	}
 }
 
+func TestFormatCLIErrorExpandsMultipleClientErrors(t *testing.T) {
+	err := &transportclient.ClientError{
+		MultipleErrors: []domainerror.DomainError{
+			domainerror.ErrInvalidTransactionType.WithField("type"),
+			domainerror.ErrInvalidDate.WithField("date"),
+		},
+		StatusCode: 400,
+	}
+
+	got := formatCLIError(err)
+
+	if !strings.Contains(got, "INVALID_TYPE: type must be either 'income' or 'expense' (field=type)") {
+		t.Fatalf("formatCLIError() missing first error: %q", got)
+	}
+	if !strings.Contains(got, "INVALID_DATE: date must be a valid YYYY-MM-DD value (field=date)") {
+		t.Fatalf("formatCLIError() missing second error: %q", got)
+	}
+	if strings.Contains(got, "and 1 more errors") {
+		t.Fatalf("formatCLIError() collapsed multiple errors: %q", got)
+	}
+}
+
 func TestAddCommandSuccess(t *testing.T) {
 	called := false
 	app, stdout, stderr := newTestApp(
-		stubTransactionUseCase{addFn: func(_ context.Context, entryType string, amountMinor int64, category string, date string, description string) error {
+		stubTransactionUseCase{addFn: func(_ context.Context, entryType string, amountMinor int64, category string, date string, description string) (entity.Transaction, error) {
 			called = true
 			if entryType != "expense" || amountMinor != 12345 || category != "Food" || date != "2024-01-15" || description != "lunch" {
 				t.Fatalf("unexpected add args: %q %d %q %q %q", entryType, amountMinor, category, date, description)
 			}
-			return nil
+			return entity.Transaction{}, nil
 		}},
 		stubCategoryUseCase{},
 		stubBudgetUseCase{},
@@ -186,11 +210,13 @@ func TestAddCommandSuccess(t *testing.T) {
 
 func TestListCommandSuccess(t *testing.T) {
 	app, stdout, stderr := newTestApp(
-		stubTransactionUseCase{listFn: func(_ context.Context, category *string, limit, offset int) ([]entity.Transaction, error) {
+		stubTransactionUseCase{listFn: func(_ context.Context, category *string, limit, offset int) (input.TransactionListResult, error) {
 			if category == nil || *category != "Food" || limit != 10 || offset != 5 {
 				t.Fatalf("unexpected list args: %v %d %d", category, limit, offset)
 			}
-			return []entity.Transaction{{ID: "1", Date: "2024-01-15", Type: "expense", CategoryNameSnapshot: "Food", AmountMinor: 12345, Description: "lunch"}}, nil
+			return input.TransactionListResult{
+				Transactions: []entity.Transaction{{ID: "1", Date: "2024-01-15", Type: "expense", CategoryNameSnapshot: "Food", AmountMinor: 12345, Description: "lunch"}},
+			}, nil
 		}},
 		stubCategoryUseCase{},
 		stubBudgetUseCase{},
@@ -253,11 +279,11 @@ func TestCategoryBudgetReportAndSettingsCommands(t *testing.T) {
 			showFn: func(context.Context) (entity.Settings, error) {
 				return entity.Settings{StorageMode: "local", AnalyticsOptIn: true, ReportTimezone: "Asia/Jakarta"}, nil
 			},
-			setInitialBalanceFn: func(_ context.Context, amount int64) error {
+			setInitialBalanceFn: func(_ context.Context, amount int64) (entity.InitialBalance, error) {
 				if amount != 50000 {
 					t.Fatalf("unexpected initial balance amount: %d", amount)
 				}
-				return nil
+				return entity.InitialBalance{}, nil
 			},
 			resetInitialBalanceFn: func(context.Context) error { return nil },
 			setAnalyticsOptInFn: func(_ context.Context, optIn bool) error {

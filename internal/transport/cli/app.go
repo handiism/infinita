@@ -6,12 +6,14 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"strings"
 
 	ucli "github.com/urfave/cli/v3"
 
 	"github.com/handiism/infinita/internal/application/port/input"
 	"github.com/handiism/infinita/internal/application/validation"
 	domainerror "github.com/handiism/infinita/internal/domain/error"
+	transportclient "github.com/handiism/infinita/internal/transport/client"
 )
 
 type App struct {
@@ -108,7 +110,7 @@ func (a *App) addCommand() *ucli.Command {
 			if err != nil {
 				return cliExitError(err, 2)
 			}
-			if err := a.txnUseCase.AddTransaction(ctx, entryType, amount, category, date, cmd.String("description")); err != nil {
+			if _, err := a.txnUseCase.AddTransaction(ctx, entryType, amount, category, date, cmd.String("description")); err != nil {
 				return cliExitError(err, exitCode(err))
 			}
 			_, _ = fmt.Fprintln(cmd.Writer, "Transaction recorded.")
@@ -128,12 +130,12 @@ func (a *App) listCommand() *ucli.Command {
 			&ucli.IntFlag{Name: "offset", Value: 0},
 		},
 		Action: func(ctx context.Context, cmd *ucli.Command) error {
-			transactions, err := a.txnUseCase.ListTransactions(ctx, optionalString(cmd.String("category")), cmd.Int("limit"), cmd.Int("offset"))
+			result, err := a.txnUseCase.ListTransactions(ctx, optionalString(cmd.String("category")), cmd.Int("limit"), cmd.Int("offset"))
 			if err != nil {
 				return cliExitError(err, exitCode(err))
 			}
 			_, _ = fmt.Fprintln(cmd.Writer, "ID       Date       Type     Category  Amount    Description")
-			for _, txn := range transactions {
+			for _, txn := range result.Transactions {
 				shortID := txn.ID
 				if len(shortID) > 8 {
 					shortID = shortID[:8]
@@ -339,7 +341,7 @@ func (a *App) settingsCommand() *ucli.Command {
 					if err != nil {
 						return cliExitError(err, 2)
 					}
-					if err := a.settingsUseCase.SetInitialBalance(ctx, amount); err != nil {
+					if _, err := a.settingsUseCase.SetInitialBalance(ctx, amount); err != nil {
 						return cliExitError(err, exitCode(err))
 					}
 					_, _ = fmt.Fprintln(cmd.Writer, "Initial balance updated.")
@@ -420,6 +422,10 @@ func optionalString(value string) *string {
 }
 
 func exitCode(err error) int {
+	var clientErr *transportclient.ClientError
+	if errors.As(err, &clientErr) {
+		return clientErr.ExitCode()
+	}
 	var domainErr domainerror.DomainError
 	if errors.As(err, &domainErr) {
 		return 2
@@ -431,5 +437,21 @@ func cliExitError(err error, code int) error {
 	if err == nil {
 		return nil
 	}
-	return ucli.Exit(err.Error(), code)
+	return ucli.Exit(formatCLIError(err), code)
+}
+
+func formatCLIError(err error) string {
+	var clientErr *transportclient.ClientError
+	if errors.As(err, &clientErr) {
+		domainErrors := clientErr.ToDomainErrors()
+		if len(domainErrors) > 1 {
+			messages := make([]string, len(domainErrors))
+			for i, domainErr := range domainErrors {
+				messages[i] = domainErr.Error()
+			}
+			return strings.Join(messages, "\n")
+		}
+	}
+
+	return err.Error()
 }

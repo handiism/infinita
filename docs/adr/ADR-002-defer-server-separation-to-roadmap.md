@@ -1,7 +1,9 @@
 # ADR-002: Defer Server Separation to Roadmap (CLI-Only MVP)
 
 ## Status
-Accepted
+Superseded
+
+Superseded by: `docs/adr/ADR-005-enable-server-transport-with-embedded-architecture.md`
 
 ## Date
 2026-03-28

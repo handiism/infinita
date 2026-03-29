@@ -7,8 +7,13 @@ import (
 )
 
 type TransactionUseCase interface {
-	AddTransaction(ctx context.Context, entryType string, amountMinor int64, category string, date string, description string) error
-	ListTransactions(ctx context.Context, category *string, limit, offset int) ([]entity.Transaction, error)
+	AddTransaction(ctx context.Context, entryType string, amountMinor int64, category string, date string, description string) (entity.Transaction, error)
+	ListTransactions(ctx context.Context, category *string, limit, offset int) (TransactionListResult, error)
+}
+
+type TransactionListResult struct {
+	Transactions []entity.Transaction
+	Total        int
 }
 
 type CategoryUseCase interface {
@@ -28,7 +33,7 @@ type ReportUseCase interface {
 
 type SettingsUseCase interface {
 	Show(ctx context.Context) (entity.Settings, error)
-	SetInitialBalance(ctx context.Context, amount int64) error
+	SetInitialBalance(ctx context.Context, amount int64) (entity.InitialBalance, error)
 	ResetInitialBalance(ctx context.Context) error
 	SetAnalyticsOptIn(ctx context.Context, optIn bool) error
 	SetReportTimezone(ctx context.Context, timezone string) error
