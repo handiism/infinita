@@ -3,6 +3,7 @@ package entity
 type BudgetStatus struct {
 	CategoryName          string
 	CategoryKey           string
+	CurrencyCode          string
 	Month                 string
 	MonthlyLimitMinor     int64
 	SpentMonthToDateMinor int64

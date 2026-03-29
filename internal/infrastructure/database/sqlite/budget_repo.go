@@ -36,6 +36,7 @@ func (r *BudgetRepository) ListBudgetsByMonth(ctx context.Context, month string)
 		result = append(result, entity.BudgetStatus{
 			CategoryName:          row.CategoryName,
 			CategoryKey:           row.CategoryKey,
+			CurrencyCode:          "IDR",
 			Month:                 row.Month,
 			MonthlyLimitMinor:     row.MonthlyLimitMinor,
 			SpentMonthToDateMinor: spentMinor,
