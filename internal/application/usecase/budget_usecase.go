@@ -21,7 +21,7 @@ func NewBudgetUseCase(budgetRepo output.BudgetRepository, categoryRepo output.Ca
 
 func (u *BudgetUseCase) SetBudget(ctx context.Context, category, month string, limit int64) error {
 	if limit <= 0 {
-		return domainerror.ErrInvalidAmount
+		return domainerror.ErrInvalidAmount.WithField("amount")
 	}
 	normalizedMonth, err := validation.ParseISOMonth(month)
 	if err != nil {

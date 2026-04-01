@@ -12,7 +12,7 @@ import (
 
 func TestInitialBalanceRepository_GetAndSet(t *testing.T) {
 	db := newTestDB(t)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	ctx := context.Background()
 	repo := NewInitialBalanceRepository(sqlc.New(db))
 
@@ -24,6 +24,7 @@ func TestInitialBalanceRepository_GetAndSet(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int64(25000), balance.InitialBalanceMinor)
 	require.Equal(t, "IDR", balance.CurrencyCode)
-	_, err = time.Parse(time.RFC3339, balance.InitializedAt)
-	require.NoError(t, err)
+	require.NotEmpty(t, balance.InitializedAt)
+	_, parseErr := time.Parse("2006-01-02 15:04:05", balance.InitializedAt)
+	require.NoError(t, parseErr, "initialized_at should be in SQLite datetime format")
 }

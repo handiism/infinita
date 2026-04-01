@@ -35,7 +35,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("database: %v", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	queries := sqlc.New(db)
 	categoryRepo := sqlite.NewCategoryRepository(queries)

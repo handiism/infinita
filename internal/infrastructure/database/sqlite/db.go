@@ -27,11 +27,11 @@ func OpenDatabase(dataDir string) (*sql.DB, error) {
 		return nil, fmt.Errorf("open sqlite: %w", err)
 	}
 	if err := runMigrations(db); err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, fmt.Errorf("run migrations: %w", err)
 	}
 	if err := os.Chmod(dbPath, 0o600); err != nil && !os.IsNotExist(err) {
-		db.Close()
+		_ = db.Close()
 		return nil, fmt.Errorf("chmod db: %w", err)
 	}
 	return db, nil

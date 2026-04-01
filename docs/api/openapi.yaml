@@ -660,7 +660,7 @@ paths:
               example:
                 status: fail
                 data:
-                  - code: CATEGORY_EXISTS
+                  - code: DUPLICATE_CATEGORY
                     message: "Category 'food' already exists"
                     field: name
                     hint: use a different category name

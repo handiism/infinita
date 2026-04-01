@@ -22,7 +22,7 @@ func (r *TransactionRepository) Create(ctx context.Context, txn entity.Transacti
 	if txn.Description != "" {
 		description = &txn.Description
 	}
-	return r.queries.CreateTransaction(ctx, sqlc.CreateTransactionParams{
+	if err := r.queries.CreateTransaction(ctx, sqlc.CreateTransactionParams{
 		ID:                   txn.ID,
 		Type:                 txn.Type,
 		AmountMinor:          txn.AmountMinor,
@@ -31,7 +31,10 @@ func (r *TransactionRepository) Create(ctx context.Context, txn entity.Transacti
 		CategoryNameSnapshot: txn.CategoryNameSnapshot,
 		Date:                 txn.Date,
 		Description:          description,
-	})
+	}); err != nil {
+		return fmt.Errorf("create transaction: %w", err)
+	}
+	return nil
 }
 
 func (r *TransactionRepository) List(ctx context.Context, categoryKey *string, limit, offset int) ([]entity.Transaction, error) {
@@ -45,7 +48,7 @@ func (r *TransactionRepository) List(ctx context.Context, categoryKey *string, l
 		Offset:  int64(offset),
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("list transactions: %w", err)
 	}
 	result := make([]entity.Transaction, 0, len(rows))
 	for _, row := range rows {
@@ -76,7 +79,7 @@ func (r *TransactionRepository) Count(ctx context.Context, categoryKey *string) 
 	}
 	count, err := r.queries.CountTransactions(ctx, key)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("count transactions: %w", err)
 	}
 	return int(count), nil
 }
@@ -100,7 +103,7 @@ func parseSQLiteDateTime(value string) (time.Time, error) {
 func (r *TransactionRepository) SumTotalsForDay(ctx context.Context, date string) (int64, int64, error) {
 	totals, err := r.queries.SumTransactionTotalsForDay(ctx, date)
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, fmt.Errorf("sum totals for day: %w", err)
 	}
 	incomeTotalMinor, err := sqliteInt64(totals.IncomeTotalMinor)
 	if err != nil {
@@ -116,7 +119,7 @@ func (r *TransactionRepository) SumTotalsForDay(ctx context.Context, date string
 func (r *TransactionRepository) SumTotalsForMonth(ctx context.Context, month string) (int64, int64, error) {
 	totals, err := r.queries.SumTransactionTotalsForMonth(ctx, month)
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, fmt.Errorf("sum totals for month: %w", err)
 	}
 	incomeTotalMinor, err := sqliteInt64(totals.IncomeTotalMinor)
 	if err != nil {
@@ -132,7 +135,7 @@ func (r *TransactionRepository) SumTotalsForMonth(ctx context.Context, month str
 func (r *TransactionRepository) SumCumulativeTotalsUpToDate(ctx context.Context, date string) (int64, int64, error) {
 	totals, err := r.queries.SumCumulativeTotalsUpToDate(ctx, date)
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, fmt.Errorf("sum cumulative totals: %w", err)
 	}
 	incomeTotalMinor, err := sqliteInt64(totals.IncomeTotalMinor)
 	if err != nil {
@@ -148,7 +151,7 @@ func (r *TransactionRepository) SumCumulativeTotalsUpToDate(ctx context.Context,
 func (r *TransactionRepository) TopCategoriesForMonth(ctx context.Context, month string) ([]entity.TopSpendingCategory, error) {
 	rows, err := r.queries.TopCategoriesForMonth(ctx, month)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("top categories for month: %w", err)
 	}
 	result := make([]entity.TopSpendingCategory, 0, len(rows))
 	for _, row := range rows {

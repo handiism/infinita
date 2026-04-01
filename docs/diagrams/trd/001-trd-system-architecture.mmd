@@ -6,22 +6,24 @@ flowchart LR
         SERVER[HTTP Server\nREST API Handlers\nJSend Response Format\nlocalhost only]
     end
 
-    subgraph APP["Application and Domain Layer"]
-        TX[Transaction Service]
-        CAT[Category Service]
-        BUD[Budget Service]
-        REP[Report Service]
-        SET[Settings Service]
+    subgraph APP["Application Layer"]
+        direction TB
+        VAL[Validation Module\nAmount / Date / Month / Category / Timezone]
+        TX[Transaction Use Case]
+        CAT[Category Use Case]
+        BUD[Budget Use Case]
+        REP[Report Use Case]
+        SET[Settings Use Case]
+        TIME[Time and Timezone Utility]
     end
 
-    subgraph CROSS["Cross-Cutting Modules"]
-        VAL[Validation Module]
-        TIME[Time and Timezone Utility]
-        ANA[Analytics Module\nOpt-in only]
+    subgraph DOMAIN["Domain Layer"]
+        ENT[Entities\nTransaction / Category / Budget / Settings / Report]
+        VO[Value Objects\nEntryType / CategoryKey / ULID]
+        DERR[Domain Errors\nINVALID_AMOUNT / INVALID_DATE / etc.]
     end
 
     %% PORTS sits at the boundary between Application/Domain and Infrastructure.
-    %% Application services depend on these interfaces; Infrastructure implements them.
     subgraph PORTS["Output Port Interfaces (Application Layer Boundary)"]
         TREPO[(Transaction Repository)]
         CREPO[(Category Repository)]
@@ -38,21 +40,26 @@ flowchart LR
     CLI --> CLIENT
     CLIENT --> SERVER
 
-    SERVER --> VAL
     SERVER --> TX
     SERVER --> CAT
     SERVER --> BUD
     SERVER --> REP
     SERVER --> SET
 
+    TX --> VAL
+    CAT --> VO
+    BUD --> VAL
+    REP --> VAL
     REP --> TIME
-    REP --> TREPO
-    REP --> IREPO
-    BUD --> TREPO
-    BUD --> BREPO
+    SET --> VAL
+
     TX --> TREPO
     TX --> CREPO
     CAT --> CREPO
+    BUD --> BREPO
+    BUD --> CREPO
+    REP --> TREPO
+    REP --> IREPO
     SET --> SREPO
     SET --> IREPO
 
@@ -62,6 +69,3 @@ flowchart LR
     IREPO --> REPO
     SREPO --> REPO
     REPO --> STORE
-
-    SET -. analyticsOptIn .-> ANA
-    ANA -. emits anonymous events only .-> SERVER

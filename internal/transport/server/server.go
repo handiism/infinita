@@ -13,6 +13,7 @@ import (
 type Server struct {
 	httpServer *http.Server
 	port       int
+	errCh      chan error
 }
 
 func New(
@@ -41,21 +42,12 @@ func (s *Server) Start(ctx context.Context) (<-chan int, error) {
 	s.port = listener.Addr().(*net.TCPAddr).Port
 
 	portCh := make(chan int, 1)
-	errCh := make(chan error, 1)
+	s.errCh = make(chan error, 1)
 
 	go func() {
 		portCh <- s.port
 		if err := s.httpServer.Serve(listener); err != nil && err != http.ErrServerClosed {
-			errCh <- err
-		}
-	}()
-
-	go func() {
-		select {
-		case <-ctx.Done():
-			return
-		case err := <-errCh:
-			fmt.Printf("server error: %v\n", err)
+			s.errCh <- err
 		}
 	}()
 
@@ -99,13 +91,17 @@ func (s *Server) WaitForReady(ctx context.Context, baseURL string) error {
 			if err != nil {
 				continue
 			}
-			resp.Body.Close()
+			_ = resp.Body.Close()
 
 			if resp.StatusCode == http.StatusOK {
 				return nil
 			}
 		}
 	}
+}
+
+func (s *Server) Err() <-chan error {
+	return s.errCh
 }
 
 func (s *Server) Shutdown(ctx context.Context) error {

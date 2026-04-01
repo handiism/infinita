@@ -10,7 +10,7 @@ import (
 
 func TestTransactionRepository_CreateAndList(t *testing.T) {
 	db := newTestDB(t)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	queries := sqlc.New(db)
 	catRepo := NewCategoryRepository(queries)
 	txnRepo := NewTransactionRepository(queries)
@@ -52,7 +52,7 @@ func TestTransactionRepository_CreateAndList(t *testing.T) {
 
 func TestTransactionRepository_ListHandlesNullDescription(t *testing.T) {
 	db := newTestDB(t)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	queries := sqlc.New(db)
 	catRepo := NewCategoryRepository(queries)
 	txnRepo := NewTransactionRepository(queries)

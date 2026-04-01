@@ -52,7 +52,7 @@ func (c *Client) performRequest(ctx context.Context, method, path string, body i
 	if err != nil {
 		return Response{}, &ClientError{Code: "CONNECTION_ERROR", Message: err.Error()}
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -66,6 +66,10 @@ func (c *Client) performRequest(ctx context.Context, method, path string, body i
 
 	if resp.StatusCode >= 400 {
 		return Response{}, c.handleError(response, resp.StatusCode)
+	}
+
+	if response.Status != "success" {
+		return Response{}, fmt.Errorf("unexpected response status %q for HTTP %d", response.Status, resp.StatusCode)
 	}
 
 	return response, nil
@@ -141,6 +145,9 @@ func (c *Client) handleError(response Response, statusCode int) error {
 			errors = append(errors, de)
 		}
 
+		if len(errors) == 0 {
+			return &ClientError{Code: "UNKNOWN_ERROR", Message: "server returned validation failure with no parseable errors", StatusCode: statusCode}
+		}
 		if len(errors) == 1 {
 			return &ClientError{DomainError: errors[0], StatusCode: statusCode}
 		}

@@ -25,19 +25,29 @@ func ParseEntryType(value string) (string, error) {
 }
 
 func ParseISODate(value string) (string, error) {
-	parsed, err := time.Parse("2006-01-02", strings.TrimSpace(value))
+	trimmed := strings.TrimSpace(value)
+	parsed, err := time.Parse("2006-01-02", trimmed)
 	if err != nil {
 		return "", domainerror.ErrInvalidDate.WithField("date")
 	}
-	return parsed.Format("2006-01-02"), nil
+	formatted := parsed.Format("2006-01-02")
+	if formatted != trimmed {
+		return "", domainerror.ErrInvalidDate.WithField("date").WithHint("day is out of range for the given month")
+	}
+	return formatted, nil
 }
 
 func ParseISOMonth(value string) (string, error) {
-	parsed, err := time.Parse("2006-01", strings.TrimSpace(value))
+	trimmed := strings.TrimSpace(value)
+	parsed, err := time.Parse("2006-01", trimmed)
 	if err != nil {
 		return "", domainerror.ErrInvalidMonth.WithField("month")
 	}
-	return parsed.Format("2006-01"), nil
+	formatted := parsed.Format("2006-01")
+	if formatted != trimmed {
+		return "", domainerror.ErrInvalidMonth.WithField("month").WithHint("month value is out of range")
+	}
+	return formatted, nil
 }
 
 func ParseTimezone(value string) (string, error) {

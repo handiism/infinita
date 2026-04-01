@@ -36,7 +36,7 @@ func main() {
 	if err != nil {
 		exitRuntime(fmt.Errorf("database: %w", err))
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	queries := sqlc.New(db)
 	categoryRepo := sqlite.NewCategoryRepository(queries)
@@ -99,6 +99,17 @@ func main() {
 		os.Stderr,
 	)
 
+	go func() {
+		select {
+		case serverErr := <-server.Err():
+			if serverErr != nil {
+				fmt.Fprintln(os.Stderr, "server error:", serverErr)
+				cancel()
+			}
+		case <-ctx.Done():
+		}
+	}()
+
 	err = app.Command().Run(ctx, os.Args)
 
 	// Graceful shutdown
@@ -110,7 +121,6 @@ func main() {
 
 	if err != nil {
 		ucli.HandleExitCoder(err)
-		fmt.Fprintln(os.Stderr, err)
 		os.Exit(exitCode(err))
 	}
 }
