@@ -97,12 +97,16 @@ This project adopts **Hexagonal (Ports & Adapters)** architecture adapted from `
    - CLI communicates with Server adapter via localhost HTTP.
 
 4. **Infrastructure Layer (Output Port Implementations)**
-   - SQLite repositories and other runtime adapters (config, observability, analytics emitter if enabled).
-   - Implements application output ports.
+    - SQLite repositories and other runtime adapters (config, observability, analytics emitter if enabled).
+    - Implements application output ports.
 
-5. **Dependency Rule**
-   - Dependencies must point inward: `transport -> application -> domain` and `infrastructure -> application/domain`.
-   - Core layers (`domain`, `application`) must not import transport/infrastructure packages.
+5. **Bootstrap / Composition Root**
+   - Shared runtime wiring is centralized in an internal bootstrap package.
+   - It resolves the data directory, opens the local database, constructs repositories and use cases, and builds the embedded HTTP server used by both `cmd/cli` and `cmd/server`.
+
+6. **Dependency Rule**
+    - Dependencies must point inward: `transport -> application -> domain` and `infrastructure -> application/domain`.
+    - Core layers (`domain`, `application`) must not import transport/infrastructure packages.
 
 ## Directory Structure (Go Clean Architecture Reference)
 
@@ -114,6 +118,7 @@ Required directory layout for this project:
 │   ├── cli/                                    # CLI entrypoint
 │   └── server/                                 # Standalone server entrypoint (dev use)
 ├── internal/
+│   ├── bootstrap/                               # Shared composition root/runtime wiring for cmd entrypoints
 │   ├── domain/
 │   │   ├── entity/
 │   │   ├── valueobject/
@@ -165,6 +170,7 @@ Required directory layout for this project:
 Notes:
 - Primary entry point is CLI (`cmd/cli`) which embedsan HTTP server goroutine.
 - The standalone server entry point (`cmd/server`) is optional and intended for development/testing.
+- Shared runtime/bootstrap wiring is factored into `internal/bootstrap` so both entrypoints use the same repository, use-case, and server construction path.
 - Storage for MVP remains local SQLite only.
 - CLI communicates with business logic via HTTP requests to embedded server (see ADR-005).
 - sqlc generated code (`sqlc/`) is committed to version control for build reproducibility.

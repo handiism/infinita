@@ -6,18 +6,14 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"syscall"
 	"time"
 
 	"github.com/handiism/infinita/internal/application/port/output"
-	"github.com/handiism/infinita/internal/application/usecase"
+	"github.com/handiism/infinita/internal/bootstrap"
 	domainerror "github.com/handiism/infinita/internal/domain/error"
-	"github.com/handiism/infinita/internal/infrastructure/database/sqlite"
-	"github.com/handiism/infinita/internal/infrastructure/database/sqlite/sqlc"
 	transportcli "github.com/handiism/infinita/internal/transport/cli"
 	transportclient "github.com/handiism/infinita/internal/transport/client"
-	transportserver "github.com/handiism/infinita/internal/transport/server"
 	ucli "github.com/urfave/cli/v3"
 )
 
@@ -32,40 +28,17 @@ func main() {
 		exitRuntime(fmt.Errorf("determine data directory: %w", err))
 	}
 
-	db, err := sqlite.OpenDatabase(dataDir)
+	runtime, err := bootstrap.NewRuntime(context.Background(), dataDir)
 	if err != nil {
-		exitRuntime(fmt.Errorf("database: %w", err))
-	}
-	defer db.Close()
-
-	queries := sqlc.New(db)
-	categoryRepo := sqlite.NewCategoryRepository(queries)
-	transactionRepo := sqlite.NewTransactionRepository(queries)
-	budgetRepo := sqlite.NewBudgetRepository(queries)
-	settingRepo := sqlite.NewSettingRepository(queries)
-	initialBalanceRepo := sqlite.NewInitialBalanceRepository(queries)
-
-	if err := enforceLocalOnly(context.Background(), settingRepo); err != nil {
 		exitRuntime(err)
 	}
+	defer func() {
+		if closeErr := runtime.Close(); closeErr != nil {
+			fmt.Fprintln(os.Stderr, "database close error:", closeErr)
+		}
+	}()
 
-	// Create use cases for the server
-	txnUsecase := usecase.NewTransactionUseCase(transactionRepo, categoryRepo)
-	categoryUsecase := usecase.NewCategoryUseCase(categoryRepo)
-	budgetUsecase := usecase.NewBudgetUseCase(budgetRepo, categoryRepo)
-	reportUsecase := usecase.NewReportUseCase(transactionRepo, initialBalanceRepo, settingRepo)
-	settingsUsecase := usecase.NewSettingsUseCase(settingRepo, initialBalanceRepo)
-
-	// Start embedded HTTP server
-	server := transportserver.New(
-		txnUsecase,
-		categoryUsecase,
-		budgetUsecase,
-		reportUsecase,
-		settingsUsecase,
-	)
-
-	portCh, err := server.Start(ctx)
+	portCh, err := runtime.Server.Start(ctx)
 	if err != nil {
 		exitRuntime(fmt.Errorf("start server: %w", err))
 	}
@@ -82,7 +55,7 @@ func main() {
 	// Wait for server to be ready
 	readyCtx, readyCancel := context.WithTimeout(ctx, 5*time.Second)
 	defer readyCancel()
-	if err := server.WaitForReady(readyCtx, baseURL); err != nil {
+	if err := runtime.Server.WaitForReady(readyCtx, baseURL); err != nil {
 		exitRuntime(fmt.Errorf("server readiness check failed: %w", err))
 	}
 
@@ -104,7 +77,7 @@ func main() {
 	// Graceful shutdown
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer shutdownCancel()
-	if shutdownErr := server.Shutdown(shutdownCtx); shutdownErr != nil {
+	if shutdownErr := runtime.Server.Shutdown(shutdownCtx); shutdownErr != nil {
 		fmt.Fprintln(os.Stderr, "server shutdown error:", shutdownErr)
 	}
 
@@ -121,14 +94,7 @@ func exitRuntime(err error) {
 }
 
 func resolveDataDir() (string, error) {
-	if env := os.Getenv(envDataDir); env != "" {
-		return env, nil
-	}
-	configDir, err := os.UserConfigDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(configDir, "infinita"), nil
+	return bootstrap.ResolveDataDir()
 }
 
 func enforceLocalOnly(ctx context.Context, settingsRepo output.SettingsRepository) error {

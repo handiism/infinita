@@ -13,6 +13,7 @@ import (
 type Server struct {
 	httpServer *http.Server
 	port       int
+	errCh      chan error
 }
 
 func New(
@@ -26,10 +27,15 @@ func New(
 	mux := NewRouter(handler)
 
 	return &Server{
+		errCh: make(chan error, 1),
 		httpServer: &http.Server{
 			Handler: mux,
 		},
 	}
+}
+
+func (s *Server) Errors() <-chan error {
+	return s.errCh
 }
 
 func (s *Server) Start(ctx context.Context) (<-chan int, error) {
@@ -37,16 +43,31 @@ func (s *Server) Start(ctx context.Context) (<-chan int, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create listener: %w", err)
 	}
+	return s.StartOnListener(ctx, listener)
+}
 
-	s.port = listener.Addr().(*net.TCPAddr).Port
+func (s *Server) StartOnListener(ctx context.Context, listener net.Listener) (<-chan int, error) {
+	if listener == nil {
+		return nil, fmt.Errorf("listener is nil")
+	}
+
+	addr, ok := listener.Addr().(*net.TCPAddr)
+	if !ok {
+		return nil, fmt.Errorf("listener address must be TCP, got %T", listener.Addr())
+	}
+
+	s.port = addr.Port
+	s.errCh = make(chan error, 1)
 
 	portCh := make(chan int, 1)
-	errCh := make(chan error, 1)
 
 	go func() {
 		portCh <- s.port
 		if err := s.httpServer.Serve(listener); err != nil && err != http.ErrServerClosed {
-			errCh <- err
+			select {
+			case s.errCh <- err:
+			default:
+			}
 		}
 	}()
 
@@ -54,8 +75,12 @@ func (s *Server) Start(ctx context.Context) (<-chan int, error) {
 		select {
 		case <-ctx.Done():
 			return
-		case err := <-errCh:
+		case err := <-s.errCh:
 			fmt.Printf("server error: %v\n", err)
+			select {
+			case s.errCh <- err:
+			default:
+			}
 		}
 	}()
 
