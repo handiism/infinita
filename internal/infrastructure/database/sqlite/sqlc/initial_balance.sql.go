@@ -29,11 +29,11 @@ func (q *Queries) GetInitialBalance(ctx context.Context) (InitialBalance, error)
 
 const upsertInitialBalance = `-- name: UpsertInitialBalance :one
 INSERT INTO initial_balance (id, initial_balance_minor, currency_code, initialized_at)
-VALUES (1, ?, ?, strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+VALUES (1, ?, ?, datetime('now'))
 ON CONFLICT(id) DO UPDATE SET
     initial_balance_minor = excluded.initial_balance_minor,
     currency_code = excluded.currency_code,
-    initialized_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+    initialized_at = datetime('now')
 RETURNING id, initial_balance_minor, currency_code, initialized_at
 `
 

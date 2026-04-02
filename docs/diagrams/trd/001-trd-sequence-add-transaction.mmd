@@ -2,42 +2,46 @@ sequenceDiagram
     actor User
     participant CLI as CLI Command Parser
     participant CLIENT as HTTP Client
-    participant SERVER as HTTP Server
-    participant VAL as Validation Module
-    participant CAT as Category Service/Repo
-    participant TX as Transaction Service
+    participant SERVER as HTTP Server Handler
+    participant UC as Transaction Use Case
+    participant VAL as Validation (application)
+    participant CREPO as Category Repository
     participant TREPO as Transaction Repository
     participant STORE as Local Storage
 
     User->>CLI: add --type expense --amount "10000" --category food --date 2026-03-28
-    CLI->>VAL: Validate required fields and amount/token rules
-    VAL-->>CLI: Valid
+    CLI->>CLI: Parse flags and normalize amount to amountMinor
 
     CLI->>CLIENT: Serialize request to JSON
     CLIENT->>SERVER: POST /transactions (localhost HTTP)
-    
-    SERVER->>VAL: Validate request body
-    VAL-->>SERVER: Valid
 
-    SERVER->>CAT: Verify category exists (default/custom)
-    CAT-->>SERVER: Category found
+    SERVER->>SERVER: Decode JSON body and basic field checks
+    SERVER->>UC: AddTransaction(type, amountMinor, category, date, description)
 
-    SERVER->>TX: Create transaction request (normalize amount to amountMinor)
-    TX->>TREPO: Save transaction entity
+    UC->>VAL: ParseEntryType, validate amountMinor > 0, NormalizeCategory, ParseISODate
+    VAL-->>UC: Validated inputs
+
+    UC->>CREPO: GetByNormalizedKey(category)
+    CREPO-->>UC: Category found
+
+    UC->>TREPO: Create(transaction entity with ULID)
     TREPO->>STORE: Persist local-only data
     STORE-->>TREPO: Saved
-    TREPO-->>TX: Transaction ID + metadata
-    TX-->>SERVER: Success response
-    SERVER-->>CLIENT: HTTP 200 + JSend success
+    TREPO-->>UC: Success
+
+    UC-->>SERVER: Transaction entity
+    SERVER-->>CLIENT: HTTP 201 + JSend success
     CLIENT-->>CLI: Deserialize response
     CLI-->>User: English confirmation output
 
-    alt Invalid input
-        VAL-->>CLI: {code, message, field?, hint?}
+    alt Validation error (type/amount/category/date)
+        UC-->>SERVER: DomainError {code, message, field?, hint?}
+        SERVER-->>CLIENT: HTTP 400 + JSend fail
+        CLIENT-->>CLI: Deserialize error
         CLI-->>User: Show structured error in English (exit code 2)
     end
 
-    alt Server error
+    alt Server / storage error
         SERVER-->>CLIENT: HTTP 5xx + JSend error
         CLIENT-->>CLI: Deserialize error
         CLI-->>User: Show server error message (exit code 3)

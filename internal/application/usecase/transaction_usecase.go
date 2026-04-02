@@ -32,7 +32,7 @@ func (u *TransactionUseCase) AddTransaction(ctx context.Context, entryType strin
 		return entity.Transaction{}, err
 	}
 	if amountMinor <= 0 {
-		return entity.Transaction{}, domainerror.ErrInvalidAmount
+		return entity.Transaction{}, domainerror.ErrInvalidAmount.WithField("amount")
 	}
 	normalizedKey, err := validation.NormalizeCategory(category)
 	if err != nil {

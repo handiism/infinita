@@ -39,7 +39,7 @@ func (r *CategoryRepository) GetByNormalizedKey(ctx context.Context, key string)
 func (r *CategoryRepository) List(ctx context.Context) ([]entity.Category, error) {
 	rows, err := r.queries.ListCategories(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("list categories: %w", err)
 	}
 	categories := make([]entity.Category, 0, len(rows))
 	for _, row := range rows {

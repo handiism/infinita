@@ -36,13 +36,13 @@ func NewHandler(
 }
 
 func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
-	WriteSuccess(w, http.StatusOK, HealthResponse{Status: "ok"})
+	_ = WriteSuccess(w, http.StatusOK, HealthResponse{Status: "ok"})
 }
 
 func (h *Handler) AddTransaction(w http.ResponseWriter, r *http.Request) {
 	var req TransactionRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		WriteError(w, http.StatusBadRequest, "INVALID_REQUEST", "failed to parse request body")
+		_ = WriteError(w, http.StatusBadRequest, "INVALID_REQUEST", "failed to parse request body")
 		return
 	}
 
@@ -63,7 +63,7 @@ func (h *Handler) AddTransaction(w http.ResponseWriter, r *http.Request) {
 		errs = append(errs, domainerror.ErrInvalidCurrency.WithField("currencyCode"))
 	}
 	if len(errs) > 0 {
-		WriteFail(w, http.StatusBadRequest, errs)
+		_ = WriteFail(w, http.StatusBadRequest, errs)
 		return
 	}
 
@@ -72,11 +72,11 @@ func (h *Handler) AddTransaction(w http.ResponseWriter, r *http.Request) {
 		if WriteFailFromError(w, http.StatusBadRequest, err) {
 			return
 		}
-		WriteError(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
+		_ = WriteError(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
 
-	WriteSuccess(w, http.StatusCreated, TransactionResponse{
+	_ = WriteSuccess(w, http.StatusCreated, TransactionResponse{
 		ID:                   txn.ID,
 		Type:                 txn.Type,
 		AmountMinor:          txn.AmountMinor,
@@ -100,7 +100,7 @@ func (h *Handler) ListTransactions(w http.ResponseWriter, r *http.Request) {
 	if l := r.URL.Query().Get("limit"); l != "" {
 		parsed, err := strconv.Atoi(l)
 		if err != nil || parsed < 1 || parsed > 500 {
-			WriteFail(w, http.StatusBadRequest, []domainerror.DomainError{
+			_ = WriteFail(w, http.StatusBadRequest, []domainerror.DomainError{
 				domainerror.ErrInvalidFlag.WithField("limit").WithHint("must be an integer between 1 and 500"),
 			})
 			return
@@ -112,7 +112,7 @@ func (h *Handler) ListTransactions(w http.ResponseWriter, r *http.Request) {
 	if o := r.URL.Query().Get("offset"); o != "" {
 		parsed, err := strconv.Atoi(o)
 		if err != nil || parsed < 0 {
-			WriteFail(w, http.StatusBadRequest, []domainerror.DomainError{
+			_ = WriteFail(w, http.StatusBadRequest, []domainerror.DomainError{
 				domainerror.ErrInvalidFlag.WithField("offset").WithHint("must be a non-negative integer"),
 			})
 			return
@@ -125,7 +125,7 @@ func (h *Handler) ListTransactions(w http.ResponseWriter, r *http.Request) {
 		if WriteFailFromError(w, http.StatusBadRequest, err) {
 			return
 		}
-		WriteError(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
+		_ = WriteError(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
 
@@ -144,7 +144,7 @@ func (h *Handler) ListTransactions(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	WriteSuccessWithMeta(w, http.StatusOK, resp, PaginationMeta{
+	_ = WriteSuccessWithMeta(w, http.StatusOK, resp, PaginationMeta{
 		Total:  result.Total,
 		Limit:  limit,
 		Offset: offset,
@@ -154,7 +154,7 @@ func (h *Handler) ListTransactions(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) ListCategories(w http.ResponseWriter, r *http.Request) {
 	categories, err := h.Categories.List(r.Context())
 	if err != nil {
-		WriteError(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
+		_ = WriteError(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
 
@@ -167,18 +167,18 @@ func (h *Handler) ListCategories(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	WriteSuccess(w, http.StatusOK, resp)
+	_ = WriteSuccess(w, http.StatusOK, resp)
 }
 
 func (h *Handler) CreateCategory(w http.ResponseWriter, r *http.Request) {
 	var req CategoryRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		WriteError(w, http.StatusBadRequest, "INVALID_REQUEST", "failed to parse request body")
+		_ = WriteError(w, http.StatusBadRequest, "INVALID_REQUEST", "failed to parse request body")
 		return
 	}
 
 	if req.Name == "" {
-		WriteFail(w, http.StatusBadRequest, []domainerror.DomainError{
+		_ = WriteFail(w, http.StatusBadRequest, []domainerror.DomainError{
 			domainerror.ErrInvalidCategory.WithField("name"),
 		})
 		return
@@ -189,11 +189,11 @@ func (h *Handler) CreateCategory(w http.ResponseWriter, r *http.Request) {
 		if WriteFailFromError(w, http.StatusBadRequest, err) {
 			return
 		}
-		WriteError(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
+		_ = WriteError(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
 
-	WriteSuccess(w, http.StatusCreated, CategoryResponse{
+	_ = WriteSuccess(w, http.StatusCreated, CategoryResponse{
 		ID:          category.ID,
 		Name:        category.Name,
 		Description: category.Description,
@@ -203,7 +203,7 @@ func (h *Handler) CreateCategory(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) SetBudget(w http.ResponseWriter, r *http.Request) {
 	var req BudgetRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		WriteError(w, http.StatusBadRequest, "INVALID_REQUEST", "failed to parse request body")
+		_ = WriteError(w, http.StatusBadRequest, "INVALID_REQUEST", "failed to parse request body")
 		return
 	}
 
@@ -218,7 +218,7 @@ func (h *Handler) SetBudget(w http.ResponseWriter, r *http.Request) {
 		errs = append(errs, domainerror.ErrInvalidAmount.WithField("monthlyLimitMinor"))
 	}
 	if len(errs) > 0 {
-		WriteFail(w, http.StatusBadRequest, errs)
+		_ = WriteFail(w, http.StatusBadRequest, errs)
 		return
 	}
 
@@ -227,17 +227,17 @@ func (h *Handler) SetBudget(w http.ResponseWriter, r *http.Request) {
 		if WriteFailFromError(w, http.StatusBadRequest, err) {
 			return
 		}
-		WriteError(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
+		_ = WriteError(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
 
-	WriteSuccess(w, http.StatusOK, nil)
+	_ = WriteSuccess(w, http.StatusOK, nil)
 }
 
 func (h *Handler) GetBudgetStatus(w http.ResponseWriter, r *http.Request) {
 	month := r.URL.Query().Get("month")
 	if month == "" {
-		WriteFail(w, http.StatusBadRequest, []domainerror.DomainError{
+		_ = WriteFail(w, http.StatusBadRequest, []domainerror.DomainError{
 			domainerror.ErrInvalidMonth.WithField("month"),
 		})
 		return
@@ -248,7 +248,7 @@ func (h *Handler) GetBudgetStatus(w http.ResponseWriter, r *http.Request) {
 		if WriteFailFromError(w, http.StatusBadRequest, err) {
 			return
 		}
-		WriteError(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
+		_ = WriteError(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
 
@@ -264,13 +264,13 @@ func (h *Handler) GetBudgetStatus(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	WriteSuccess(w, http.StatusOK, resp)
+	_ = WriteSuccess(w, http.StatusOK, resp)
 }
 
 func (h *Handler) GetDailyReport(w http.ResponseWriter, r *http.Request) {
 	date := r.URL.Query().Get("date")
 	if date == "" {
-		WriteFail(w, http.StatusBadRequest, []domainerror.DomainError{
+		_ = WriteFail(w, http.StatusBadRequest, []domainerror.DomainError{
 			domainerror.ErrInvalidDate.WithField("date"),
 		})
 		return
@@ -281,11 +281,11 @@ func (h *Handler) GetDailyReport(w http.ResponseWriter, r *http.Request) {
 		if WriteFailFromError(w, http.StatusBadRequest, err) {
 			return
 		}
-		WriteError(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
+		_ = WriteError(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
 
-	WriteSuccess(w, http.StatusOK, DailyReportResponse{
+	_ = WriteSuccess(w, http.StatusOK, DailyReportResponse{
 		Period:            "daily",
 		Date:              summary.Period,
 		CurrencyCode:      summary.CurrencyCode,
@@ -298,7 +298,7 @@ func (h *Handler) GetDailyReport(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) GetMonthlyReport(w http.ResponseWriter, r *http.Request) {
 	month := r.URL.Query().Get("month")
 	if month == "" {
-		WriteFail(w, http.StatusBadRequest, []domainerror.DomainError{
+		_ = WriteFail(w, http.StatusBadRequest, []domainerror.DomainError{
 			domainerror.ErrInvalidMonth.WithField("month"),
 		})
 		return
@@ -309,7 +309,7 @@ func (h *Handler) GetMonthlyReport(w http.ResponseWriter, r *http.Request) {
 		if WriteFailFromError(w, http.StatusBadRequest, err) {
 			return
 		}
-		WriteError(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
+		_ = WriteError(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
 
@@ -321,7 +321,7 @@ func (h *Handler) GetMonthlyReport(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	WriteSuccess(w, http.StatusOK, MonthlyReportResponse{
+	_ = WriteSuccess(w, http.StatusOK, MonthlyReportResponse{
 		Period:              "monthly",
 		Month:               summary.Period,
 		CurrencyCode:        summary.CurrencyCode,
@@ -336,11 +336,11 @@ func (h *Handler) GetMonthlyReport(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) GetSettings(w http.ResponseWriter, r *http.Request) {
 	settings, err := h.Settings.Show(r.Context())
 	if err != nil {
-		WriteError(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
+		_ = WriteError(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
 
-	WriteSuccess(w, http.StatusOK, SettingsResponse{
+	_ = WriteSuccess(w, http.StatusOK, SettingsResponse{
 		StorageMode:    settings.StorageMode,
 		AnalyticsOptIn: settings.AnalyticsOptIn,
 		ReportTimezone: settings.ReportTimezone,
@@ -350,18 +350,18 @@ func (h *Handler) GetSettings(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) SetInitialBalance(w http.ResponseWriter, r *http.Request) {
 	var req SetInitialBalanceRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		WriteError(w, http.StatusBadRequest, "INVALID_REQUEST", "failed to parse request body")
+		_ = WriteError(w, http.StatusBadRequest, "INVALID_REQUEST", "failed to parse request body")
 		return
 	}
 
 	if req.InitialBalanceMinor < 0 {
-		WriteFail(w, http.StatusBadRequest, []domainerror.DomainError{
+		_ = WriteFail(w, http.StatusBadRequest, []domainerror.DomainError{
 			domainerror.ErrInvalidAmount.WithField("initialBalanceMinor").WithHint("provide a non-negative numeric value"),
 		})
 		return
 	}
 	if req.CurrencyCode != mvpCurrencyCode {
-		WriteFail(w, http.StatusBadRequest, []domainerror.DomainError{
+		_ = WriteFail(w, http.StatusBadRequest, []domainerror.DomainError{
 			domainerror.ErrInvalidCurrency.WithField("currencyCode"),
 		})
 		return
@@ -372,11 +372,11 @@ func (h *Handler) SetInitialBalance(w http.ResponseWriter, r *http.Request) {
 		if WriteFailFromError(w, http.StatusBadRequest, err) {
 			return
 		}
-		WriteError(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
+		_ = WriteError(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
 
-	WriteSuccess(w, http.StatusOK, InitialBalanceResponse{
+	_ = WriteSuccess(w, http.StatusOK, InitialBalanceResponse{
 		InitialBalanceMinor: initialBalance.InitialBalanceMinor,
 		CurrencyCode:        initialBalance.CurrencyCode,
 		InitializedAt:       initialBalance.InitializedAt,
@@ -386,38 +386,38 @@ func (h *Handler) SetInitialBalance(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) ResetInitialBalance(w http.ResponseWriter, r *http.Request) {
 	err := h.Settings.ResetInitialBalance(r.Context())
 	if err != nil {
-		WriteError(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
+		_ = WriteError(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
 
-	WriteSuccess(w, http.StatusOK, nil)
+	_ = WriteSuccess(w, http.StatusOK, nil)
 }
 
 func (h *Handler) SetAnalyticsOptIn(w http.ResponseWriter, r *http.Request) {
 	var req SetAnalyticsOptInRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		WriteError(w, http.StatusBadRequest, "INVALID_REQUEST", "failed to parse request body")
+		_ = WriteError(w, http.StatusBadRequest, "INVALID_REQUEST", "failed to parse request body")
 		return
 	}
 
 	err := h.Settings.SetAnalyticsOptIn(r.Context(), req.AnalyticsOptIn)
 	if err != nil {
-		WriteError(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
+		_ = WriteError(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
 
-	WriteSuccess(w, http.StatusOK, nil)
+	_ = WriteSuccess(w, http.StatusOK, nil)
 }
 
 func (h *Handler) SetReportTimezone(w http.ResponseWriter, r *http.Request) {
 	var req SetReportTimezoneRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		WriteError(w, http.StatusBadRequest, "INVALID_REQUEST", "failed to parse request body")
+		_ = WriteError(w, http.StatusBadRequest, "INVALID_REQUEST", "failed to parse request body")
 		return
 	}
 
 	if req.ReportTimezone == "" {
-		WriteFail(w, http.StatusBadRequest, []domainerror.DomainError{
+		_ = WriteFail(w, http.StatusBadRequest, []domainerror.DomainError{
 			domainerror.ErrInvalidTimezone.WithField("reportTimezone"),
 		})
 		return
@@ -428,9 +428,9 @@ func (h *Handler) SetReportTimezone(w http.ResponseWriter, r *http.Request) {
 		if WriteFailFromError(w, http.StatusBadRequest, err) {
 			return
 		}
-		WriteError(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
+		_ = WriteError(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
 
-	WriteSuccess(w, http.StatusOK, nil)
+	_ = WriteSuccess(w, http.StatusOK, nil)
 }

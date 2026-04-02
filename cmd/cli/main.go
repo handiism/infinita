@@ -9,15 +9,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/handiism/infinita/internal/application/port/output"
 	"github.com/handiism/infinita/internal/bootstrap"
-	domainerror "github.com/handiism/infinita/internal/domain/error"
 	transportcli "github.com/handiism/infinita/internal/transport/cli"
 	transportclient "github.com/handiism/infinita/internal/transport/client"
 	ucli "github.com/urfave/cli/v3"
 )
-
-const envDataDir = "INFINITA_DATA_DIR"
 
 func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -30,7 +26,7 @@ func main() {
 
 	runtime, err := bootstrap.NewRuntime(context.Background(), dataDir)
 	if err != nil {
-		exitRuntime(err)
+		exitRuntime(fmt.Errorf("database: %w", err))
 	}
 	defer func() {
 		if closeErr := runtime.Close(); closeErr != nil {
@@ -72,6 +68,17 @@ func main() {
 		os.Stderr,
 	)
 
+	go func() {
+		select {
+		case serverErr := <-runtime.Server.Err():
+			if serverErr != nil {
+				fmt.Fprintln(os.Stderr, "server error:", serverErr)
+				cancel()
+			}
+		case <-ctx.Done():
+		}
+	}()
+
 	err = app.Command().Run(ctx, os.Args)
 
 	// Graceful shutdown
@@ -83,7 +90,6 @@ func main() {
 
 	if err != nil {
 		ucli.HandleExitCoder(err)
-		fmt.Fprintln(os.Stderr, err)
 		os.Exit(exitCode(err))
 	}
 }
@@ -95,17 +101,6 @@ func exitRuntime(err error) {
 
 func resolveDataDir() (string, error) {
 	return bootstrap.ResolveDataDir()
-}
-
-func enforceLocalOnly(ctx context.Context, settingsRepo output.SettingsRepository) error {
-	settings, err := settingsRepo.GetSettings(ctx)
-	if err != nil {
-		return err
-	}
-	if settings.StorageMode != "local" {
-		return domainerror.ErrInvalidStorageMode.WithField("storage_mode").WithHint(fmt.Sprintf("unsupported configured mode '%s'; storage mode must remain local in MVP", settings.StorageMode))
-	}
-	return nil
 }
 
 func exitCode(err error) int {

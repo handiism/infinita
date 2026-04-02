@@ -11,7 +11,7 @@ import (
 
 func TestSettingRepository_GetAndUpdate(t *testing.T) {
 	db := newTestDB(t)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	ctx := context.Background()
 	queries := sqlc.New(db)
 	repo := NewSettingRepository(queries)

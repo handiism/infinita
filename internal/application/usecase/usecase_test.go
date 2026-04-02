@@ -53,6 +53,56 @@ func TestSettingsUseCase_ResetInitialBalanceSetsZero(t *testing.T) {
 	require.Equal(t, "IDR", repo.currency)
 }
 
+func TestCategoryUseCase_ListReturnsCategoriesFromRepo(t *testing.T) {
+	expected := []entity.Category{
+		{ID: 1, Name: "Food", NormalizedKey: "food"},
+		{ID: 2, Name: "Transport", NormalizedKey: "transport"},
+	}
+	repo := &fakeCategoryRepository{categories: expected}
+	uc := usecase.NewCategoryUseCase(repo)
+
+	got, err := uc.List(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, expected, got)
+}
+
+func TestCategoryUseCase_ListPropagatesError(t *testing.T) {
+	repo := &fakeCategoryRepository{listErr: errors.New("db down")}
+	uc := usecase.NewCategoryUseCase(repo)
+
+	_, err := uc.List(context.Background())
+	require.Error(t, err)
+}
+
+func TestCategoryUseCase_CreateSuccess(t *testing.T) {
+	repo := &fakeCategoryRepository{}
+	uc := usecase.NewCategoryUseCase(repo)
+
+	cat, err := uc.Create(context.Background(), "Entertainment", "Movies and fun")
+	require.NoError(t, err)
+	require.Equal(t, "Entertainment", cat.Name)
+	require.Equal(t, "entertainment", cat.NormalizedKey)
+}
+
+func TestCategoryUseCase_CreateRejectsEmptyName(t *testing.T) {
+	uc := usecase.NewCategoryUseCase(&fakeCategoryRepository{})
+
+	_, err := uc.Create(context.Background(), "", "desc")
+	assertdomain.Code(t, err, domainerror.ErrInvalidCategory.Code)
+
+	_, err = uc.Create(context.Background(), "   ", "desc")
+	assertdomain.Code(t, err, domainerror.ErrInvalidCategory.Code)
+}
+
+func TestCategoryUseCase_CreateWrapsRepoError(t *testing.T) {
+	repo := &fakeCategoryRepository{createErr: errors.New("unique constraint")}
+	uc := usecase.NewCategoryUseCase(repo)
+
+	_, err := uc.Create(context.Background(), "Food", "")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "create category")
+}
+
 func TestBudgetUseCase_SetBudgetValidates(t *testing.T) {
 	cases := []struct {
 		name     string
@@ -261,17 +311,28 @@ func (f *fakeBudgetRepository) ListBudgetsByMonth(_ context.Context, _ string) (
 }
 
 type fakeCategoryRepository struct {
-	category entity.Category
-	err      error
+	category   entity.Category
+	err        error
+	categories []entity.Category
+	listErr    error
+	createErr  error
+	created    entity.Category
 }
 
 func (f *fakeCategoryRepository) GetByNormalizedKey(_ context.Context, _ string) (entity.Category, error) {
 	return f.category, f.err
 }
 
-func (*fakeCategoryRepository) List(context.Context) ([]entity.Category, error) { return nil, nil }
-func (*fakeCategoryRepository) Create(context.Context, string, string, string) (entity.Category, error) {
-	return entity.Category{}, nil
+func (f *fakeCategoryRepository) List(context.Context) ([]entity.Category, error) {
+	return f.categories, f.listErr
+}
+
+func (f *fakeCategoryRepository) Create(_ context.Context, name, key, desc string) (entity.Category, error) {
+	if f.createErr != nil {
+		return entity.Category{}, f.createErr
+	}
+	f.created = entity.Category{ID: 99, Name: name, NormalizedKey: key, Description: desc}
+	return f.created, nil
 }
 
 type fakeTransactionRepository struct {

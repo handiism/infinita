@@ -61,9 +61,11 @@ func (s *Server) StartOnListener(ctx context.Context, listener net.Listener) (<-
 
 	portCh := make(chan int, 1)
 
+	// Serve requests and report fatal errors to callers via s.errCh.
 	go func() {
 		portCh <- s.port
 		if err := s.httpServer.Serve(listener); err != nil && err != http.ErrServerClosed {
+			fmt.Printf("server error: %v\n", err)
 			select {
 			case s.errCh <- err:
 			default:
@@ -71,17 +73,12 @@ func (s *Server) StartOnListener(ctx context.Context, listener net.Listener) (<-
 		}
 	}()
 
+	// Best-effort shutdown when the context is cancelled.
 	go func() {
-		select {
-		case <-ctx.Done():
-			return
-		case err := <-s.errCh:
-			fmt.Printf("server error: %v\n", err)
-			select {
-			case s.errCh <- err:
-			default:
-			}
-		}
+		<-ctx.Done()
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = s.httpServer.Shutdown(shutdownCtx)
 	}()
 
 	return portCh, nil
@@ -124,13 +121,17 @@ func (s *Server) WaitForReady(ctx context.Context, baseURL string) error {
 			if err != nil {
 				continue
 			}
-			resp.Body.Close()
+			_ = resp.Body.Close()
 
 			if resp.StatusCode == http.StatusOK {
 				return nil
 			}
 		}
 	}
+}
+
+func (s *Server) Err() <-chan error {
+	return s.errCh
 }
 
 func (s *Server) Shutdown(ctx context.Context) error {

@@ -1,8 +1,29 @@
+BIN := bin/infinita
 M := migrate
 DIR := internal/infrastructure/database/sqlite/migrations
 DB ?= /tmp/infinita-dev.db
 
-.PHONY: mg-create mgu mgd mgd-all mgf mgv sg
+.PHONY: build run test cover lint tidy ci mg-create mgu mgd mgd-all mgf mgv sg
+
+build:
+	go build -o $(BIN) ./cmd/cli
+
+run:
+	go run ./cmd/cli $(ARGS)
+
+test:
+	go test ./...
+
+cover:
+	go test -cover ./...
+
+lint:
+	golangci-lint run
+
+tidy:
+	go mod tidy
+
+ci: lint test build
 
 mg-create:
 	@test -n "$(name)" || (echo "Usage: make mg-create name=<desc>" && exit 1)

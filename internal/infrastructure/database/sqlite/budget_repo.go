@@ -17,7 +17,10 @@ func NewBudgetRepository(queries *sqlc.Queries) *BudgetRepository {
 }
 
 func (r *BudgetRepository) UpsertBudget(ctx context.Context, categoryID int64, month string, limit int64) error {
-	return r.queries.UpsertBudget(ctx, sqlc.UpsertBudgetParams{CategoryID: categoryID, Month: month, MonthlyLimitMinor: limit})
+	if err := r.queries.UpsertBudget(ctx, sqlc.UpsertBudgetParams{CategoryID: categoryID, Month: month, MonthlyLimitMinor: limit}); err != nil {
+		return fmt.Errorf("upsert budget: %w", err)
+	}
+	return nil
 }
 
 func (r *BudgetRepository) ListBudgetsByMonth(ctx context.Context, month string) ([]entity.BudgetStatus, error) {

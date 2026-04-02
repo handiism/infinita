@@ -1,6 +1,7 @@
 package client
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -70,8 +71,8 @@ func (e *ClientError) ToDomainErrors() []domainerror.DomainError {
 }
 
 func IsClientError(err error) bool {
-	_, ok := err.(*ClientError)
-	return ok
+	var clientErr *ClientError
+	return errors.As(err, &clientErr)
 }
 
 type TransactionRequest struct {

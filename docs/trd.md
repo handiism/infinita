@@ -115,60 +115,46 @@ Required directory layout for this project:
 ```text
 .
 ├── cmd/
-│   ├── cli/                                    # CLI entrypoint
+│   ├── cli/                                    # CLI entrypoint (embeds HTTP server)
 │   └── server/                                 # Standalone server entrypoint (dev use)
 ├── internal/
 │   ├── bootstrap/                               # Shared composition root/runtime wiring for cmd entrypoints
 │   ├── domain/
-│   │   ├── entity/
-│   │   ├── valueobject/
-│   │   ├── event/
-│   │   └── error/
+│   │   ├── entity/                             # Transaction, Category, Budget, Settings, Report
+│   │   ├── valueobject/                        # EntryType, CategoryKey, ULID
+│   │   └── error/                              # Structured domain errors
 │   ├── application/
 │   │   ├── port/
-│   │   │   ├── input/
-│   │   │   └── output/
-│   │   ├── usecase/
-│   │   ├── dto/
-│   │   └── validation/
+│   │   │   ├── input/                          # Use case interfaces
+│   │   │   └── output/                         # Repository interfaces
+│   │   ├── usecase/                            # Use case implementations
+│   │   └── validation/                         # Shared amount/date/month/category/timezone parsing
 │   ├── transport/
-│   │   ├── cli/                                # CLI handlers/commands/presenter
+│   │   ├── cli/                                # CLI commands and presenter (urfave/cli)
 │   │   ├── client/                             # HTTP client for CLI-to-server communication
-│   │   └── server/                              # HTTP handlers/router/DTOs for REST API
-│   └── infrastructure/
-│       ├── database/
-│       │   └── sqlite/
-│       │       ├── sqlc/                       # sqlc generated code (committed)
-│       │       │   ├── db.go
-│       │       │   ├── models.go
-│       │       │   ├── querier.go
-│       │       │   └── query.sql.go
-│       │       ├── migrations/                 # golang-migrate files (also sqlc schema input)
-│       │       │   ├── 000001_init_schema.up.sql
-│       │       │   └── 000001_init_schema.down.sql
-│       │       ├── queries/                    # sqlc query definitions
-│       │       │   ├── transaction.sql
-│       │       │   ├── category.sql
-│       │       │   ├── budget.sql
-│       │       │   ├── setting.sql
-│       │       │   └── initial_balance.sql
-│       │       ├── db.go                       # Connection setup, migration runner
-│       │       ├── transaction_repo.go         # Implements output port
-│       │       ├── category_repo.go
-│       │       ├── budget_repo.go
-│       │       ├── setting_repo.go
-│       │       ├── initial_balance_repo.go
-│       │       └── testutil_test.go            # Test helpers (t.TempDir pattern)
-│       ├── config/
-│       ├── observability/
-│       └── analytics/
+│   │   └── server/                             # HTTP handlers/router/DTOs for REST API
+│   ├── infrastructure/
+│   │   └── database/
+│   │       └── sqlite/
+│   │           ├── sqlc/                       # sqlc generated code (committed)
+│   │           ├── migrations/                 # golang-migrate files (also sqlc schema input)
+│   │           ├── queries/                    # sqlc query definitions
+│   │           ├── db.go                       # Connection setup, migration runner
+│   │           ├── transaction_repo.go         # Implements output port
+│   │           ├── category_repo.go
+│   │           ├── budget_repo.go
+│   │           ├── setting_repo.go
+│   │           ├── initial_balance_repo.go
+│   │           ├── values.go                   # Nullable / type conversion helpers
+│   │           └── testutil_test.go            # Test helpers (t.TempDir pattern)
+│   └── testutil/
+│       └── assertdomain/                       # Domain error assertion helpers
 ├── sqlc.yaml                                   # sqlc configuration
-├── pkg/
 └── docs/
 ```
 
 Notes:
-- Primary entry point is CLI (`cmd/cli`) which embedsan HTTP server goroutine.
+- Primary entry point is CLI (`cmd/cli`) which embeds an HTTP server goroutine.
 - The standalone server entry point (`cmd/server`) is optional and intended for development/testing.
 - Shared runtime/bootstrap wiring is factored into `internal/bootstrap` so both entrypoints use the same repository, use-case, and server construction path.
 - Storage for MVP remains local SQLite only.
@@ -315,7 +301,7 @@ The embedded HTTP server exposes REST endpoints for all business operations. Com
 | `/transactions` | GET | List transactions with filters and pagination |
 | `/categories` | GET | List all categories |
 | `/categories` | POST | Create a custom category |
-| `/budgets` | POST | Set monthly budget for a category |
+| `/budgets` | PUT | Set monthly budget for a category |
 | `/budgets/status` | GET | Get budget status for a month |
 | `/reports/daily` | GET | Get daily summary |
 | `/reports/monthly` | GET | Get monthly summary |
