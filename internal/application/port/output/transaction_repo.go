@@ -6,6 +6,7 @@ import (
 	"github.com/handiism/infinita/internal/domain/entity"
 )
 
+// TransactionRepository defines the interface for transaction persistence.
 type TransactionRepository interface {
 	Create(ctx context.Context, txn entity.Transaction) error
 	List(ctx context.Context, categoryKey *string, limit, offset int) ([]entity.Transaction, error)

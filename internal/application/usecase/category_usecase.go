@@ -10,10 +10,12 @@ import (
 	"github.com/handiism/infinita/internal/domain/valueobject"
 )
 
+// CategoryUseCase implements category-related operations.
 type CategoryUseCase struct {
 	repo output.CategoryRepository
 }
 
+// NewCategoryUseCase creates a new CategoryUseCase.
 func NewCategoryUseCase(repo output.CategoryRepository) *CategoryUseCase {
 	return &CategoryUseCase{repo: repo}
 }

@@ -14,13 +14,16 @@ import (
 	"github.com/handiism/infinita/internal/application/port/input"
 	"github.com/handiism/infinita/internal/domain/entity"
 	domainerror "github.com/handiism/infinita/internal/domain/error"
+	"github.com/handiism/infinita/internal/domain/valueobject"
 )
 
+// Client is an HTTP client for the embedded server.
 type Client struct {
 	baseURL    string
 	httpClient *http.Client
 }
 
+// New creates a new Client targeting the given base URL.
 func New(baseURL string) *Client {
 	return &Client{
 		baseURL: baseURL,
@@ -205,7 +208,7 @@ func (c *Client) AddTransaction(ctx context.Context, entryType string, amountMin
 	req := TransactionRequest{
 		Type:         entryType,
 		AmountMinor:  amountMinor,
-		CurrencyCode: "IDR",
+		CurrencyCode: valueobject.DefaultCurrencyCode,
 		Category:     category,
 		Date:         date,
 		Description:  description,
@@ -386,7 +389,7 @@ func (c *Client) Show(ctx context.Context) (entity.Settings, error) {
 func (c *Client) SetInitialBalance(ctx context.Context, amount int64) (entity.InitialBalance, error) {
 	req := SetInitialBalanceRequest{
 		InitialBalanceMinor: amount,
-		CurrencyCode:        "IDR",
+		CurrencyCode:        valueobject.DefaultCurrencyCode,
 	}
 	var resp InitialBalanceResponse
 	if err := c.put(ctx, "/settings/initial-balance", req, &resp); err != nil {

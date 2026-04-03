@@ -8,6 +8,7 @@ import (
 	domainerror "github.com/handiism/infinita/internal/domain/error"
 )
 
+// Response is the standard API response envelope.
 type Response struct {
 	Status  string      `json:"status"`
 	Data    interface{} `json:"data,omitempty"`
@@ -16,6 +17,7 @@ type Response struct {
 	Meta    interface{} `json:"meta"`
 }
 
+// ClientError represents an error from the API client.
 type ClientError struct {
 	Code           string
 	Message        string

@@ -13,15 +13,17 @@ import (
 )
 
 const (
-	defaultTransactionLimit = 50
-	maxTransactionLimit     = 500
+	defaultTransactionLimit = valueobject.DefaultTransactionLimit
+	maxTransactionLimit     = valueobject.MaxTransactionLimit
 )
 
+// TransactionUseCase implements transaction-related operations.
 type TransactionUseCase struct {
 	txRepo       output.TransactionRepository
 	categoryRepo output.CategoryRepository
 }
 
+// NewTransactionUseCase creates a new TransactionUseCase.
 func NewTransactionUseCase(txRepo output.TransactionRepository, categoryRepo output.CategoryRepository) *TransactionUseCase {
 	return &TransactionUseCase{txRepo: txRepo, categoryRepo: categoryRepo}
 }
@@ -49,9 +51,9 @@ func (u *TransactionUseCase) AddTransaction(ctx context.Context, entryType strin
 		return entity.Transaction{}, err
 	}
 
-	txn := entity.NewTransaction(valueobject.NewID(), parsedType, amountMinor, "IDR", cat.ID, cat.Name, normalizedDate, description)
+	txn := entity.NewTransaction(valueobject.NewID(), parsedType, amountMinor, valueobject.DefaultCurrencyCode, cat.ID, cat.Name, normalizedDate, description)
 	if err := u.txRepo.Create(ctx, txn); err != nil {
-		return entity.Transaction{}, err
+		return entity.Transaction{}, fmt.Errorf("create transaction: %w", err)
 	}
 	return txn, nil
 }
@@ -76,11 +78,11 @@ func (u *TransactionUseCase) ListTransactions(ctx context.Context, category *str
 	}
 	transactions, err := u.txRepo.List(ctx, normalized, limit, offset)
 	if err != nil {
-		return input.TransactionListResult{}, err
+		return input.TransactionListResult{}, fmt.Errorf("list transactions: %w", err)
 	}
 	total, err := u.txRepo.Count(ctx, normalized)
 	if err != nil {
-		return input.TransactionListResult{}, err
+		return input.TransactionListResult{}, fmt.Errorf("count transactions: %w", err)
 	}
 	return input.TransactionListResult{
 		Transactions: transactions,

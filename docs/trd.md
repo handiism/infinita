@@ -233,7 +233,7 @@ Notes:
 - `TRD-API-001`: Transaction query contract must support category filter, pagination (`limit`, `offset`), and stable sort by date (desc), then creation timestamp (desc).
 - `TRD-API-002`: Budget query contract must return `category`, `currencyCode`, `monthlyLimitMinor`, `spentMonthToDateMinor`, `remainingMinor`, and `isOverLimit`.
 - `TRD-API-003`: Report query contract must return `{period, currencyCode, incomeTotalMinor, expenseTotalMinor, netBalanceMinor}` for daily mode, and must additionally return `{closingBalanceMinor, topCategories[]}` for monthly mode.
-- `TRD-API-004`: Settings contract is local CLI-side (non-cloud HTTP) and must return `{storageMode, analyticsOptIn, reportTimezone}` with idempotent update operations.
+- `TRD-API-004`: Settings contract is local CLI-side (non-cloud HTTP) and must return `{storageMode, reportTimezone}` with idempotent update operations.
 - `TRD-API-005`: Initialization contract must return `{initialBalanceMinor, currencyCode, initializedAt}` and support explicit set/reset by user command. In MVP, reset semantics mean persisting `initialBalanceMinor = 0` rather than deleting the initialization record.
 
 ### Infrastructure
@@ -448,7 +448,6 @@ Report field semantics:
 ```json
 {
   "storageMode": "local",
-  "analyticsOptIn": false,
   "reportTimezone": "Asia/Jakarta"
 }
 ```

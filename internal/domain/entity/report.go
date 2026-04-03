@@ -1,5 +1,6 @@
 package entity
 
+// DailySummary holds aggregated transaction data for a single day.
 type DailySummary struct {
 	Period            string
 	CurrencyCode      string
@@ -8,6 +9,7 @@ type DailySummary struct {
 	NetBalanceMinor   int64
 }
 
+// TopSpendingCategory represents a category with the highest spending in a period.
 type TopSpendingCategory struct {
 	Category    string
 	AmountMinor int64

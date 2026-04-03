@@ -2,6 +2,7 @@ package entity
 
 import "time"
 
+// Transaction represents a financial transaction record.
 type Transaction struct {
 	ID                   string
 	Type                 string
@@ -14,10 +15,11 @@ type Transaction struct {
 	CreatedAt            time.Time
 }
 
-func NewTransaction(id, tType string, amountMinor int64, currency string, categoryID int64, categoryName, date, description string) Transaction {
+// NewTransaction creates a new Transaction with the given parameters.
+func NewTransaction(id, entryType string, amountMinor int64, currency string, categoryID int64, categoryName, date, description string) Transaction {
 	return Transaction{
 		ID:                   id,
-		Type:                 tType,
+		Type:                 entryType,
 		AmountMinor:          amountMinor,
 		CurrencyCode:         currency,
 		CategoryID:           categoryID,

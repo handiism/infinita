@@ -1,5 +1,6 @@
 package entity
 
+// BudgetStatus represents the current status of a budget for a category.
 type BudgetStatus struct {
 	CategoryName          string
 	CategoryKey           string

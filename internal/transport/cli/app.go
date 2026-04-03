@@ -12,9 +12,11 @@ import (
 	"github.com/handiism/infinita/internal/application/port/input"
 	"github.com/handiism/infinita/internal/application/validation"
 	domainerror "github.com/handiism/infinita/internal/domain/error"
+	"github.com/handiism/infinita/internal/domain/valueobject"
 	transportclient "github.com/handiism/infinita/internal/transport/client"
 )
 
+// App is the CLI application.
 type App struct {
 	txnUseCase      input.TransactionUseCase
 	categoryUseCase input.CategoryUseCase
@@ -26,6 +28,7 @@ type App struct {
 	stderr          io.Writer
 }
 
+// NewApp creates a new CLI application.
 func NewApp(
 	txnUseCase input.TransactionUseCase,
 	categoryUseCase input.CategoryUseCase,
@@ -135,7 +138,7 @@ func (a *App) listCommand() *ucli.Command {
 		UsageText: "infinita list [--category <name>] [--limit <n>] [--offset <n>]",
 		Flags: []ucli.Flag{
 			&ucli.StringFlag{Name: "category"},
-			&ucli.IntFlag{Name: "limit", Value: 50},
+			&ucli.IntFlag{Name: "limit", Value: valueobject.DefaultTransactionLimit},
 			&ucli.IntFlag{Name: "offset", Value: 0},
 		},
 		Action: func(ctx context.Context, cmd *ucli.Command) error {

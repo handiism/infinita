@@ -1,12 +1,7 @@
 erDiagram
-    setting ||--|| initial_balance : configures
+    %% Note: Settings are stored in YAML file, not SQLite. This diagram shows SQLite tables only.
     category ||--o{ finance_transaction : classified_by
     category ||--o{ budget : has_limit
-
-    setting {
-        text key PK
-        text value
-    }
 
     initial_balance {
         integer id PK "singleton (id = 1)"

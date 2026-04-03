@@ -6,6 +6,7 @@ import (
 	"github.com/handiism/infinita/internal/domain/entity"
 )
 
+// CategoryRepository defines the interface for category persistence.
 type CategoryRepository interface {
 	GetByNormalizedKey(ctx context.Context, key string) (entity.Category, error)
 	List(ctx context.Context) ([]entity.Category, error)

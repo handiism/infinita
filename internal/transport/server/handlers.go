@@ -7,8 +7,10 @@ import (
 
 	"github.com/handiism/infinita/internal/application/port/input"
 	domainerror "github.com/handiism/infinita/internal/domain/error"
+	"github.com/handiism/infinita/internal/domain/valueobject"
 )
 
+// Handler handles HTTP requests for the server.
 type Handler struct {
 	Transactions input.TransactionUseCase
 	Categories   input.CategoryUseCase
@@ -17,8 +19,9 @@ type Handler struct {
 	Settings     input.SettingsUseCase
 }
 
-const mvpCurrencyCode = "IDR"
+const mvpCurrencyCode = valueobject.DefaultCurrencyCode
 
+// NewHandler creates a new Handler with the given use cases.
 func NewHandler(
 	transactions input.TransactionUseCase,
 	categories input.CategoryUseCase,
@@ -96,10 +99,10 @@ func (h *Handler) ListTransactions(w http.ResponseWriter, r *http.Request) {
 		categoryPtr = &category
 	}
 
-	limit := 50
+	limit := valueobject.DefaultTransactionLimit
 	if l := r.URL.Query().Get("limit"); l != "" {
 		parsed, err := strconv.Atoi(l)
-		if err != nil || parsed < 1 || parsed > 500 {
+		if err != nil || parsed < 1 || parsed > valueobject.MaxTransactionLimit {
 			_ = WriteFail(w, http.StatusBadRequest, []domainerror.DomainError{
 				domainerror.ErrInvalidFlag.WithField("limit").WithHint("must be an integer between 1 and 500"),
 			})

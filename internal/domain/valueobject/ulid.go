@@ -13,6 +13,7 @@ var (
 	entropy     = ulid.Monotonic(rand.Reader, 0)
 )
 
+// NewID generates a new ULID string with monotonic entropy.
 func NewID() string {
 	monotonicMu.Lock()
 	defer monotonicMu.Unlock()

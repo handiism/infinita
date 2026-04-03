@@ -6,6 +6,7 @@ import (
 	"github.com/handiism/infinita/internal/domain/entity"
 )
 
+// InitialBalanceRepository defines the interface for initial balance persistence.
 type InitialBalanceRepository interface {
 	Get(ctx context.Context) (entity.InitialBalance, error)
 	Set(ctx context.Context, amount int64, currency string) (entity.InitialBalance, error)

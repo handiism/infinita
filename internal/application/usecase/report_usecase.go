@@ -10,39 +10,36 @@ import (
 	"github.com/handiism/infinita/internal/application/validation"
 	"github.com/handiism/infinita/internal/domain/entity"
 	domainerror "github.com/handiism/infinita/internal/domain/error"
+	"github.com/handiism/infinita/internal/domain/valueobject"
 )
 
+// ReportUseCase implements report generation operations.
 type ReportUseCase struct {
 	txRepo             output.TransactionRepository
 	initialBalanceRepo output.InitialBalanceRepository
 	settingsRepo       output.SettingsRepository
 }
 
+// NewReportUseCase creates a new ReportUseCase.
 func NewReportUseCase(txRepo output.TransactionRepository, initialBalanceRepo output.InitialBalanceRepository, settingsRepo output.SettingsRepository) *ReportUseCase {
 	return &ReportUseCase{txRepo: txRepo, initialBalanceRepo: initialBalanceRepo, settingsRepo: settingsRepo}
 }
 
 func (u *ReportUseCase) Daily(ctx context.Context, date string) (entity.DailySummary, error) {
-	loc, err := u.loadReportLocation(ctx)
-	if err != nil {
-		return entity.DailySummary{}, err
-	}
 	normalizedDate, err := validation.ParseISODate(date)
 	if err != nil {
 		return entity.DailySummary{}, err
 	}
-	parsed, err := time.ParseInLocation("2006-01-02", normalizedDate, loc)
-	if err != nil {
-		return entity.DailySummary{}, domainerror.ErrInvalidDate
+	if _, err := u.loadReportLocation(ctx); err != nil {
+		return entity.DailySummary{}, err
 	}
-	dateKey := parsed.Format("2006-01-02")
-	income, expense, err := u.txRepo.SumTotalsForDay(ctx, dateKey)
+	income, expense, err := u.txRepo.SumTotalsForDay(ctx, normalizedDate)
 	if err != nil {
 		return entity.DailySummary{}, fmt.Errorf("daily totals: %w", err)
 	}
 	return entity.DailySummary{
-		Period:            dateKey,
-		CurrencyCode:      "IDR",
+		Period:            normalizedDate,
+		CurrencyCode:      valueobject.DefaultCurrencyCode,
 		IncomeTotalMinor:  income,
 		ExpenseTotalMinor: expense,
 		NetBalanceMinor:   income - expense,
@@ -62,7 +59,7 @@ func (u *ReportUseCase) Monthly(ctx context.Context, month string) (entity.Month
 	if err != nil {
 		return entity.MonthlySummary{}, domainerror.ErrInvalidMonth
 	}
-	monthKey := parsed.Format("2006-01")
+	monthKey := normalizedMonth
 	income, expense, err := u.txRepo.SumTotalsForMonth(ctx, monthKey)
 	if err != nil {
 		return entity.MonthlySummary{}, fmt.Errorf("monthly totals: %w", err)
@@ -88,7 +85,7 @@ func (u *ReportUseCase) Monthly(ctx context.Context, month string) (entity.Month
 	}
 	return entity.MonthlySummary{
 		Period:              monthKey,
-		CurrencyCode:        "IDR",
+		CurrencyCode:        valueobject.DefaultCurrencyCode,
 		IncomeTotalMinor:    income,
 		ExpenseTotalMinor:   expense,
 		NetBalanceMinor:     income - expense,

@@ -11,6 +11,7 @@ import (
 	"github.com/handiism/infinita/internal/application/port/input"
 )
 
+// Server is an embedded HTTP server.
 type Server struct {
 	httpServer *http.Server
 	port       int
@@ -19,6 +20,7 @@ type Server struct {
 	startErr   error
 }
 
+// New creates a new Server with the given use cases.
 func New(
 	transactions input.TransactionUseCase,
 	categories input.CategoryUseCase,

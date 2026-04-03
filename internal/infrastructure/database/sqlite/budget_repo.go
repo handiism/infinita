@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/handiism/infinita/internal/domain/entity"
+	"github.com/handiism/infinita/internal/domain/valueobject"
 	"github.com/handiism/infinita/internal/infrastructure/database/sqlite/sqlc"
 )
 
@@ -39,7 +40,7 @@ func (r *BudgetRepository) ListBudgetsByMonth(ctx context.Context, month string)
 		result = append(result, entity.BudgetStatus{
 			CategoryName:          row.CategoryName,
 			CategoryKey:           row.CategoryKey,
-			CurrencyCode:          "IDR",
+			CurrencyCode:          valueobject.DefaultCurrencyCode,
 			Month:                 row.Month,
 			MonthlyLimitMinor:     row.MonthlyLimitMinor,
 			SpentMonthToDateMinor: spentMinor,

@@ -26,3 +26,17 @@ coverage.html
 .env.*
 !.env.example
 .gitnexus
+
+# IDE/editor directories
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+
+# Agent/tooling state
+skills-lock.json

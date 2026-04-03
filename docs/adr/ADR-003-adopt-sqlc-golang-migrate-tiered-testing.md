@@ -10,7 +10,7 @@
 ## Decision
 - Use `sqlc` for SQL-to-Go code generation.
 - Use `golang-migrate` for schema migration.
-- Use three testing levels: repository, service, and command.
+- Use four testing tiers: repository integration, service unit, HTTP handler, and command integration.
 - Use `mattn/go-sqlite3` as the SQLite driver.
 
 ## Consequences

@@ -18,7 +18,6 @@ flowchart LR
         BUD[Budget Use Case]
         REP[Report Use Case]
         SET[Settings Use Case]
-        TIME[Time and Timezone Utility]
     end
 
     subgraph DOMAIN["Domain Layer"]
@@ -56,7 +55,6 @@ flowchart LR
     CAT --> VO
     BUD --> VAL
     REP --> VAL
-    REP --> TIME
     SET --> VAL
 
     TX --> TREPO
