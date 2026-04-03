@@ -44,7 +44,7 @@ func (s *Server) Start(ctx context.Context) (<-chan int, error) {
 	}
 	portCh, err := s.StartOnListener(ctx, listener)
 	if err != nil {
-		listener.Close()
+		_ = listener.Close()
 		return nil, err
 	}
 	return portCh, nil
@@ -101,13 +101,18 @@ func (s *Server) Port() int {
 	return s.port
 }
 
-func (s *Server) WaitForReady(ctx context.Context, baseURL string) error {
-	client := &http.Client{Timeout: 100 * time.Millisecond}
+const (
+	healthCheckTimeout     = 100 * time.Millisecond
+	healthCheckInterval    = 50 * time.Millisecond
+	healthCheckMaxAttempts = 100
+)
 
-	ticker := time.NewTicker(50 * time.Millisecond)
+func (s *Server) WaitForReady(ctx context.Context, baseURL string) error {
+	client := &http.Client{Timeout: healthCheckTimeout}
+
+	ticker := time.NewTicker(healthCheckInterval)
 	defer ticker.Stop()
 
-	maxAttempts := 100
 	attempts := 0
 
 	for {
@@ -116,8 +121,8 @@ func (s *Server) WaitForReady(ctx context.Context, baseURL string) error {
 			return fmt.Errorf("server readiness check cancelled: %w", ctx.Err())
 		case <-ticker.C:
 			attempts++
-			if attempts > maxAttempts {
-				return fmt.Errorf("server readiness check timed out after %d attempts", maxAttempts)
+			if attempts > healthCheckMaxAttempts {
+				return fmt.Errorf("server readiness check timed out after %d attempts", healthCheckMaxAttempts)
 			}
 
 			url := fmt.Sprintf("%s/health", baseURL)

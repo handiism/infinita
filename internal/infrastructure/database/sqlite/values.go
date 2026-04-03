@@ -22,6 +22,8 @@ func sqliteInt64(value interface{}) (int64, error) {
 	case int:
 		return int64(v), nil
 	case float64:
+		// SQLite may return INTEGER column aggregates (SUM, etc.) as float64,
+		// but the underlying values are whole numbers, so truncation is safe.
 		return int64(v), nil
 	case []byte:
 		parsed, err := strconv.ParseInt(string(v), 10, 64)
