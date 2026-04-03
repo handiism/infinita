@@ -39,6 +39,11 @@ infrastructure -> application/domain
 - `internal/transport/cli`: CLI adapter only
 - `internal/infrastructure`: concrete adapters
 
+## SQL Generation
+
+- Never edit generated SQL files manually. Always use `sqlc generate` to regenerate them.
+- Edit only the source `.sql` query files and `sqlc.yaml` config, then run `sqlc generate`.
+
 ## Critical Constraints
 
 - Money uses `int64` minor units only. No `float64`.
