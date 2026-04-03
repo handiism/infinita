@@ -134,6 +134,9 @@ Required directory layout for this project:
 │   │   ├── client/                             # HTTP client for CLI-to-server communication
 │   │   └── server/                             # HTTP handlers/router/DTOs for REST API
 │   ├── infrastructure/
+│   │   ├── settings/
+│   │   │   ├── settings_repo.go               # YAML-based settings repository
+│   │   │   └── settings_repo_test.go
 │   │   └── database/
 │   │       └── sqlite/
 │   │           ├── sqlc/                       # sqlc generated code (committed)
@@ -143,7 +146,6 @@ Required directory layout for this project:
 │   │           ├── transaction_repo.go         # Implements output port
 │   │           ├── category_repo.go
 │   │           ├── budget_repo.go
-│   │           ├── setting_repo.go
 │   │           ├── initial_balance_repo.go
 │   │           ├── values.go                   # Nullable / type conversion helpers
 │   │           └── testutil_test.go            # Test helpers (t.TempDir pattern)
@@ -212,7 +214,7 @@ Notes:
 - `TRD-DOM-001`: Budget computation must calculate remaining amount per category as `monthlyLimitMinor - spentMonthToDateMinor` and mark over-limit when `remainingMinor < 0`.
 - `TRD-DOM-002`: Summary computation must aggregate totals by date bucket (day/month). Category aggregation and deterministic ordering rules for top spending categories apply to monthly summaries, with ordering defined as `amountMinor DESC`, then normalized category key (case-insensitive category name) `ASC` as tie-breaker.
 - `TRD-DOM-003`: Report totals must be bucket-scoped for the requested `daily|monthly` period: `incomeTotalMinor` and `expenseTotalMinor` include only transactions inside that single bucket; `netBalanceMinor` must equal `incomeTotalMinor - expenseTotalMinor` for the same bucket.
-- `TRD-DOM-004`: Daily and monthly bucket boundaries must use `reportTimezone` from settings; MVP bootstrap seeds the default timezone to `Asia/Jakarta`, and it can be changed only via explicit settings command.
+- `TRD-DOM-004`: Daily and monthly bucket boundaries must use `reportTimezone` from settings; MVP defaults the timezone to `Asia/Jakarta` via a YAML settings file (`settings.yaml`), and it can be changed only via explicit settings command.
 - `TRD-DOM-005`: Closing balance at period end must be cumulative and use `initialBalanceMinor + cumulativeIncomeToPeriodEndMinor - cumulativeExpenseToPeriodEndMinor`, where cumulative values are from app start through the end of the requested monthly period bucket.
 
 ### Validation

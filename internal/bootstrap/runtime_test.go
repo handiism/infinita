@@ -63,6 +63,25 @@ func TestResolveDataDirUsesUserConfigDir(t *testing.T) {
 	}
 }
 
+func TestResolveSettingsFileUsesEnvironmentOverride(t *testing.T) {
+	t.Setenv(envSettingsFile, "/tmp/custom-settings.yaml")
+
+	got := ResolveSettingsFile("/default/dir")
+	if got != "/tmp/custom-settings.yaml" {
+		t.Fatalf("ResolveSettingsFile() = %q, want %q", got, "/tmp/custom-settings.yaml")
+	}
+}
+
+func TestResolveSettingsFileFallsBackToDefault(t *testing.T) {
+	t.Setenv(envSettingsFile, "")
+
+	got := ResolveSettingsFile("/default/dir")
+	want := filepath.Join("/default/dir", "settings.yaml")
+	if got != want {
+		t.Fatalf("ResolveSettingsFile() = %q, want %q", got, want)
+	}
+}
+
 func TestEnforceLocalOnly(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -103,7 +122,8 @@ func TestEnforceLocalOnly(t *testing.T) {
 
 func TestNewRuntimeCreatesUsableServer(t *testing.T) {
 	dataDir := t.TempDir()
-	runtime, err := NewRuntime(context.Background(), dataDir)
+	settingsFile := ResolveSettingsFile(dataDir)
+	runtime, err := NewRuntime(context.Background(), dataDir, settingsFile)
 	if err != nil {
 		t.Fatalf("NewRuntime() error = %v", err)
 	}

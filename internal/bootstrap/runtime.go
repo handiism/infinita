@@ -11,10 +11,12 @@ import (
 	domainerror "github.com/handiism/infinita/internal/domain/error"
 	"github.com/handiism/infinita/internal/infrastructure/database/sqlite"
 	"github.com/handiism/infinita/internal/infrastructure/database/sqlite/sqlc"
+	infinitasettings "github.com/handiism/infinita/internal/infrastructure/settings"
 	transportserver "github.com/handiism/infinita/internal/transport/server"
 )
 
 const envDataDir = "INFINITA_DATA_DIR"
+const envSettingsFile = "INFINITA_SETTINGS_FILE"
 
 type Runtime struct {
 	Server *transportserver.Server
@@ -34,7 +36,14 @@ func ResolveDataDir() (string, error) {
 	return filepath.Join(configDir, "infinita"), nil
 }
 
-func NewRuntime(ctx context.Context, dataDir string) (*Runtime, error) {
+func ResolveSettingsFile(dataDir string) string {
+	if env := os.Getenv(envSettingsFile); env != "" {
+		return env
+	}
+	return filepath.Join(dataDir, "settings.yaml")
+}
+
+func NewRuntime(ctx context.Context, dataDir string, settingsFile string) (*Runtime, error) {
 	db, err := sqlite.OpenDatabase(dataDir)
 	if err != nil {
 		return nil, fmt.Errorf("database: %w", err)
@@ -44,7 +53,7 @@ func NewRuntime(ctx context.Context, dataDir string) (*Runtime, error) {
 	categoryRepo := sqlite.NewCategoryRepository(queries)
 	transactionRepo := sqlite.NewTransactionRepository(queries)
 	budgetRepo := sqlite.NewBudgetRepository(queries)
-	settingRepo := sqlite.NewSettingRepository(queries)
+	settingRepo := infinitasettings.NewSettingsRepository(settingsFile)
 	initialBalanceRepo := sqlite.NewInitialBalanceRepository(queries)
 
 	if err := enforceLocalOnly(ctx, settingRepo); err != nil {

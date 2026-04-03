@@ -126,7 +126,7 @@ func (s stubSettingsUseCase) SetReportTimezone(ctx context.Context, timezone str
 }
 
 func TestHelpers(t *testing.T) {
-	cmd := NewApp(nil, nil, nil, nil, nil, &bytes.Buffer{}, &bytes.Buffer{}).Command()
+	cmd := NewApp(nil, nil, nil, nil, nil, "settings.yaml", &bytes.Buffer{}, &bytes.Buffer{}).Command()
 	cmd.Root().Flags = nil
 
 	if _, err := requiredString(cmd, "missing"); err == nil {
@@ -298,7 +298,7 @@ func TestCategoryBudgetReportAndSettingsCommands(t *testing.T) {
 		{command: app.budgetCommand().Commands[1], args: []string{"status", "--month", "2024-01"}, wantContain: "Food: limit=40000, spent=12345, remaining=27655, over_limit=false"},
 		{command: app.reportCommand().Commands[0], args: []string{"daily", "--date", "2024-01-15"}, wantContain: "Daily report 2024-01-15: income=50000 expense=12345 net=37655"},
 		{command: app.reportCommand().Commands[1], args: []string{"monthly", "--month", "2024-01"}, wantContain: "Monthly report 2024-01: income=100000 expense=12345 net=87655 closing=120000"},
-		{command: app.settingsCommand().Commands[0], args: []string{"show"}, wantContain: "Storage mode: local"},
+		{command: app.settingsCommand().Commands[0], args: []string{"show"}, wantContain: "Storage mode:  local"},
 		{command: app.settingsCommand().Commands[1], args: []string{"set-initial-balance", "--amount", "500.00"}, wantContain: "Initial balance updated."},
 		{command: app.settingsCommand().Commands[2], args: []string{"reset-initial-balance"}, wantContain: "Initial balance reset."},
 		{command: app.settingsCommand().Commands[3], args: []string{"report-timezone", "--timezone", "UTC"}, wantContain: "Report timezone updated."},
@@ -319,7 +319,7 @@ func TestCategoryBudgetReportAndSettingsCommands(t *testing.T) {
 func newTestApp(txn stubTransactionUseCase, category stubCategoryUseCase, budget stubBudgetUseCase, report stubReportUseCase, settings stubSettingsUseCase) (*App, *bytes.Buffer, *bytes.Buffer) {
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
-	return NewApp(txn, category, budget, report, settings, stdout, stderr), stdout, stderr
+	return NewApp(txn, category, budget, report, settings, "settings.yaml", stdout, stderr), stdout, stderr
 }
 
 func runTestCommand(cmd *ucli.Command, stdout, stderr *bytes.Buffer, args []string) error {

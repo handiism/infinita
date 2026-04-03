@@ -31,11 +31,6 @@ CREATE TABLE IF NOT EXISTS budgets (
     UNIQUE(category_id, month)
 );
 
-CREATE TABLE IF NOT EXISTS settings (
-    key TEXT PRIMARY KEY,
-    value TEXT NOT NULL
-);
-
 CREATE TABLE IF NOT EXISTS initial_balance (
     id INTEGER PRIMARY KEY CHECK (id = 1),
     initial_balance_minor INTEGER NOT NULL CHECK(initial_balance_minor >= 0),
@@ -50,11 +45,6 @@ VALUES
     ('Utilities', 'utilities', 'Utilities and recurring services'),
     ('Housing', 'housing', 'Rent, mortgage, and housing-related costs'),
     ('Savings', 'savings', 'Allocated savings and investments');
-
-INSERT OR IGNORE INTO settings (key, value)
-VALUES
-    ('storage_mode', 'local'),
-    ('report_timezone', 'Asia/Jakarta');
 
 INSERT OR IGNORE INTO initial_balance (id, initial_balance_minor)
 VALUES (1, 0);

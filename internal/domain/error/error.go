@@ -54,4 +54,5 @@ var (
 	ErrUnknownCommand         = New("UNKNOWN_COMMAND", "the requested command is not recognized")
 	ErrInvalidFlag            = New("INVALID_FLAG", "invalid command argument or flag")
 	ErrInvalidTimezone        = New("INVALID_TIMEZONE", "timezone must be a valid IANA region")
+	ErrInvalidConfig          = New("INVALID_CONFIG", "settings file contains invalid values")
 )

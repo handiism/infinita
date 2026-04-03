@@ -21,6 +21,7 @@ type App struct {
 	budgetUseCase   input.BudgetUseCase
 	reportUseCase   input.ReportUseCase
 	settingsUseCase input.SettingsUseCase
+	configPath      string
 	stdout          io.Writer
 	stderr          io.Writer
 }
@@ -31,6 +32,7 @@ func NewApp(
 	budgetUseCase input.BudgetUseCase,
 	reportUseCase input.ReportUseCase,
 	settingsUseCase input.SettingsUseCase,
+	configPath string,
 	stdout io.Writer,
 	stderr io.Writer,
 ) *App {
@@ -40,6 +42,7 @@ func NewApp(
 		budgetUseCase:   budgetUseCase,
 		reportUseCase:   reportUseCase,
 		settingsUseCase: settingsUseCase,
+		configPath:      configPath,
 		stdout:          stdout,
 		stderr:          stderr,
 	}
@@ -52,6 +55,13 @@ func (a *App) Command() *ucli.Command {
 		UsageText: "infinita <command> [command options]",
 		Writer:    a.stdout,
 		ErrWriter: a.stderr,
+		Flags: []ucli.Flag{
+			&ucli.StringFlag{
+				Name:    "config",
+				Usage:   "Path to settings YAML file",
+				Sources: ucli.EnvVars("INFINITA_SETTINGS_FILE"),
+			},
+		},
 		Commands: []*ucli.Command{
 			a.addCommand(),
 			a.listCommand(),
@@ -318,7 +328,8 @@ func (a *App) settingsCommand() *ucli.Command {
 					if err != nil {
 						return cliExitError(err, exitCode(err))
 					}
-					_, _ = fmt.Fprintf(cmd.Writer, "Storage mode: %s\n", settings.StorageMode)
+					_, _ = fmt.Fprintf(cmd.Writer, "Config file:   %s\n", a.configPath)
+					_, _ = fmt.Fprintf(cmd.Writer, "Storage mode:  %s\n", settings.StorageMode)
 					_, _ = fmt.Fprintf(cmd.Writer, "Report timezone: %s\n", settings.ReportTimezone)
 					return nil
 				},

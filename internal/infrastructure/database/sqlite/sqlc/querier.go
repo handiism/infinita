@@ -15,7 +15,6 @@ type Querier interface {
 	GetBudgetsForMonth(ctx context.Context, month string) ([]GetBudgetsForMonthRow, error)
 	GetCategoryByNormalizedKey(ctx context.Context, normalizedKey string) (Category, error)
 	GetInitialBalance(ctx context.Context) (InitialBalance, error)
-	GetSetting(ctx context.Context, key string) (Setting, error)
 	ListCategories(ctx context.Context) ([]Category, error)
 	ListTransactions(ctx context.Context, arg ListTransactionsParams) ([]Transaction, error)
 	SumCumulativeTotalsUpToDate(ctx context.Context, date string) (SumCumulativeTotalsUpToDateRow, error)
@@ -24,7 +23,6 @@ type Querier interface {
 	TopCategoriesForMonth(ctx context.Context, date string) ([]TopCategoriesForMonthRow, error)
 	UpsertBudget(ctx context.Context, arg UpsertBudgetParams) error
 	UpsertInitialBalance(ctx context.Context, arg UpsertInitialBalanceParams) (InitialBalance, error)
-	UpsertSetting(ctx context.Context, arg UpsertSettingParams) error
 }
 
 var _ Querier = (*Queries)(nil)

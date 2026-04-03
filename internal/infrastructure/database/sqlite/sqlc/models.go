@@ -19,11 +19,6 @@ type InitialBalance struct {
 	InitializedAt       string `json:"initialized_at"`
 }
 
-type Setting struct {
-	Key   string `json:"key"`
-	Value string `json:"value"`
-}
-
 type Transaction struct {
 	ID                   string  `json:"id"`
 	Type                 string  `json:"type"`

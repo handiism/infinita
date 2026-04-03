@@ -121,16 +121,8 @@ func TestCLIRejectsNonLocalStorageMode(t *testing.T) {
 	_, code := runCLI(t, bin, dataDir, "list")
 	require.Equal(t, 0, code)
 
-	dbPath := filepath.Join(dataDir, "infinita.db")
-	db, err := sql.Open("sqlite3", dbPath)
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		if err := db.Close(); err != nil {
-			t.Logf("failed to close sqlite db: %v", err)
-		}
-	})
-
-	_, err = db.Exec(`UPDATE settings SET value = 'remote' WHERE key = 'storage_mode'`)
+	settingsPath := filepath.Join(dataDir, "settings.yaml")
+	err := os.WriteFile(settingsPath, []byte("storage_mode: remote\nreport_timezone: Asia/Jakarta\n"), 0o600)
 	require.NoError(t, err)
 
 	out, code := runCLI(t, bin, dataDir, "list")

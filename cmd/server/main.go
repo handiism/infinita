@@ -20,7 +20,9 @@ func main() {
 		log.Fatalf("determine data directory: %v", err)
 	}
 
-	runtime, err := bootstrap.NewRuntime(context.Background(), dataDir)
+	settingsFile := bootstrap.ResolveSettingsFile(dataDir)
+
+	runtime, err := bootstrap.NewRuntime(context.Background(), dataDir, settingsFile)
 	if err != nil {
 		log.Fatalf("runtime: %v", err)
 	}

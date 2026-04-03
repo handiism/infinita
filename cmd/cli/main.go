@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -24,7 +25,10 @@ func main() {
 		exitRuntime(fmt.Errorf("determine data directory: %w", err))
 	}
 
-	runtime, err := bootstrap.NewRuntime(context.Background(), dataDir)
+	// Pre-parse --config before urfave/cli runs, since runtime needs it for bootstrap.
+	settingsFile := resolveSettingsFile(dataDir, os.Args)
+
+	runtime, err := bootstrap.NewRuntime(context.Background(), dataDir, settingsFile)
 	if err != nil {
 		exitRuntime(fmt.Errorf("database: %w", err))
 	}
@@ -64,6 +68,7 @@ func main() {
 		client,
 		client,
 		client,
+		settingsFile,
 		os.Stdout,
 		os.Stderr,
 	)
@@ -101,6 +106,18 @@ func exitRuntime(err error) {
 
 func resolveDataDir() (string, error) {
 	return bootstrap.ResolveDataDir()
+}
+
+func resolveSettingsFile(dataDir string, args []string) string {
+	for i, arg := range args {
+		if arg == "--config" && i+1 < len(args) {
+			return args[i+1]
+		}
+		if after, ok := strings.CutPrefix(arg, "--config="); ok {
+			return after
+		}
+	}
+	return bootstrap.ResolveSettingsFile(dataDir)
 }
 
 func exitCode(err error) int {
