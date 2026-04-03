@@ -12,14 +12,12 @@ type Querier interface {
 	CountTransactions(ctx context.Context, dollar_1 interface{}) (int64, error)
 	CreateCategory(ctx context.Context, arg CreateCategoryParams) error
 	CreateTransaction(ctx context.Context, arg CreateTransactionParams) error
-	GetAnalyticsConsent(ctx context.Context) (AnalyticsConsent, error)
 	GetBudgetsForMonth(ctx context.Context, month string) ([]GetBudgetsForMonthRow, error)
 	GetCategoryByNormalizedKey(ctx context.Context, normalizedKey string) (Category, error)
 	GetInitialBalance(ctx context.Context) (InitialBalance, error)
 	GetSetting(ctx context.Context, key string) (Setting, error)
 	ListCategories(ctx context.Context) ([]Category, error)
 	ListTransactions(ctx context.Context, arg ListTransactionsParams) ([]Transaction, error)
-	SetAnalyticsConsent(ctx context.Context, analyticsOptIn int64) error
 	SumCumulativeTotalsUpToDate(ctx context.Context, date string) (SumCumulativeTotalsUpToDateRow, error)
 	SumTransactionTotalsForDay(ctx context.Context, date string) (SumTransactionTotalsForDayRow, error)
 	SumTransactionTotalsForMonth(ctx context.Context, date string) (SumTransactionTotalsForMonthRow, error)

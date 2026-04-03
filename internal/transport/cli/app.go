@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"strconv"
 	"strings"
 
 	ucli "github.com/urfave/cli/v3"
@@ -320,7 +319,6 @@ func (a *App) settingsCommand() *ucli.Command {
 						return cliExitError(err, exitCode(err))
 					}
 					_, _ = fmt.Fprintf(cmd.Writer, "Storage mode: %s\n", settings.StorageMode)
-					_, _ = fmt.Fprintf(cmd.Writer, "Analytics opt-in: %t\n", settings.AnalyticsOptIn)
 					_, _ = fmt.Fprintf(cmd.Writer, "Report timezone: %s\n", settings.ReportTimezone)
 					return nil
 				},
@@ -357,29 +355,6 @@ func (a *App) settingsCommand() *ucli.Command {
 						return cliExitError(err, exitCode(err))
 					}
 					_, _ = fmt.Fprintln(cmd.Writer, "Initial balance reset.")
-					return nil
-				},
-			},
-			{
-				Name:      "analytics",
-				Usage:     "Update analytics opt-in",
-				UsageText: "infinita settings analytics --opt-in <true|false>",
-				Flags: []ucli.Flag{
-					&ucli.StringFlag{Name: "opt-in"},
-				},
-				Action: func(ctx context.Context, cmd *ucli.Command) error {
-					optInText, err := requiredString(cmd, "opt-in")
-					if err != nil {
-						return cliExitError(err, 2)
-					}
-					optIn, err := strconv.ParseBool(optInText)
-					if err != nil {
-						return cliExitError(domainerror.ErrInvalidFlag.WithField("opt-in").WithHint("must be true or false"), 2)
-					}
-					if err := a.settingsUseCase.SetAnalyticsOptIn(ctx, optIn); err != nil {
-						return cliExitError(err, exitCode(err))
-					}
-					_, _ = fmt.Fprintf(cmd.Writer, "Analytics opt-in updated: %t\n", optIn)
 					return nil
 				},
 			},

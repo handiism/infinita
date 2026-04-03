@@ -64,19 +64,16 @@ This matters now because the MVP needs a simple, private, English-first workflow
 - `PRD-NFR-006`: Embedded server startup must complete within 5 seconds to avoid perceptible CLI latency.
 
 ## Measurement & Privacy Strategy
-- Behavioral success metrics are measured only for users who explicitly opt in to anonymous analytics.
-- Opt-in analytics are off by default and require clear consent during setup or via a dedicated settings command.
-- Analytics events must exclude financial payloads (no amounts, descriptions, categories, or raw transaction content).
-- Minimum analytics payload for KPI measurement: anonymous installation ID, event type (`transaction_added`, `budget_used`), and timestamp bucket.
-- Users can review and revoke analytics consent at any time.
-- Product KPIs that depend on user behavior are evaluated against the opt-in cohort; if cohort size is insufficient, fallback to structured usability/beta test cohorts.
+- All product metrics are evaluated using local-only data; no remote analytics are collected.
+- No telemetry or analytics events are emitted by the application.
+- All user data remains local on the device with secure file permissions.
 
 ## Success Metrics
-- At least 60% of first-week active users in the analytics opt-in cohort log at least 5 transactions.
-- At least 40% of users in the analytics opt-in cohort who create budgets use the budgeting feature at least once per week.
+- At least 60% of first-week active users log at least 5 transactions.
+- At least 40% of users who create budgets use the budgeting feature at least once per week.
 - At least 99% of MVP command execution scenarios covering core CLI flows complete without runtime errors across at least 1,000 executions.
 - New transaction entry time is 15 seconds or less for familiar users.
-- 100% of users use local-only storage in MVP, and telemetry remains off by default.
+- 100% of users use local-only storage in MVP.
 
 ## Acceptance Criteria
 - [ ] Given valid input, when the user runs an example transaction-add command, then the transaction is saved and confirmation is shown.

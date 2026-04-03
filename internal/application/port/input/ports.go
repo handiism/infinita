@@ -35,6 +35,5 @@ type SettingsUseCase interface {
 	Show(ctx context.Context) (entity.Settings, error)
 	SetInitialBalance(ctx context.Context, amount int64) (entity.InitialBalance, error)
 	ResetInitialBalance(ctx context.Context) error
-	SetAnalyticsOptIn(ctx context.Context, optIn bool) error
 	SetReportTimezone(ctx context.Context, timezone string) error
 }

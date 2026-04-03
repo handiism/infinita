@@ -161,7 +161,6 @@ type MonthlyReportResponse struct {
 
 type SettingsResponse struct {
 	StorageMode    string `json:"storageMode"`
-	AnalyticsOptIn bool   `json:"analyticsOptIn"`
 	ReportTimezone string `json:"reportTimezone"`
 }
 
@@ -174,10 +173,6 @@ type InitialBalanceResponse struct {
 type SetInitialBalanceRequest struct {
 	InitialBalanceMinor int64  `json:"initialBalanceMinor"`
 	CurrencyCode        string `json:"currencyCode"`
-}
-
-type SetAnalyticsOptInRequest struct {
-	AnalyticsOptIn bool `json:"analyticsOptIn"`
 }
 
 type SetReportTimezoneRequest struct {

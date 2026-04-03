@@ -17,7 +17,6 @@ func TestSettingsUseCase_ShowReturnsRepositoryValues(t *testing.T) {
 	repo := &fakeSettingsRepository{settings: entity.Settings{
 		StorageMode:    "local",
 		ReportTimezone: "Asia/Jakarta",
-		AnalyticsOptIn: true,
 	}}
 	uc := usecase.NewSettingsUseCase(repo, &fakeInitialBalanceRepository{})
 
@@ -265,8 +264,6 @@ func (f *fakeSettingsRepository) GetSettings(context.Context) (entity.Settings, 
 
 func (*fakeSettingsRepository) SetStorageMode(context.Context, string) error    { return nil }
 func (*fakeSettingsRepository) SetReportTimezone(context.Context, string) error { return nil }
-func (*fakeSettingsRepository) SetAnalyticsOptIn(context.Context, bool) error   { return nil }
-func (*fakeSettingsRepository) GetAnalyticsOptIn(context.Context) (bool, error) { return false, nil }
 
 type fakeInitialBalanceRepository struct {
 	amount    int64

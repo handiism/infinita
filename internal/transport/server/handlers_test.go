@@ -190,10 +190,6 @@ func (stubSettingsUseCase) ResetInitialBalance(context.Context) error {
 	return nil
 }
 
-func (stubSettingsUseCase) SetAnalyticsOptIn(context.Context, bool) error {
-	return nil
-}
-
 func (stubSettingsUseCase) SetReportTimezone(context.Context, string) error {
 	return nil
 }

@@ -94,7 +94,6 @@ type stubSettingsUseCase struct {
 	showFn                func(context.Context) (entity.Settings, error)
 	setInitialBalanceFn   func(context.Context, int64) (entity.InitialBalance, error)
 	resetInitialBalanceFn func(context.Context) error
-	setAnalyticsOptInFn   func(context.Context, bool) error
 	setReportTimezoneFn   func(context.Context, string) error
 }
 
@@ -115,13 +114,6 @@ func (s stubSettingsUseCase) SetInitialBalance(ctx context.Context, amount int64
 func (s stubSettingsUseCase) ResetInitialBalance(ctx context.Context) error {
 	if s.resetInitialBalanceFn != nil {
 		return s.resetInitialBalanceFn(ctx)
-	}
-	return nil
-}
-
-func (s stubSettingsUseCase) SetAnalyticsOptIn(ctx context.Context, optIn bool) error {
-	if s.setAnalyticsOptInFn != nil {
-		return s.setAnalyticsOptInFn(ctx, optIn)
 	}
 	return nil
 }
@@ -277,7 +269,7 @@ func TestCategoryBudgetReportAndSettingsCommands(t *testing.T) {
 		},
 		stubSettingsUseCase{
 			showFn: func(context.Context) (entity.Settings, error) {
-				return entity.Settings{StorageMode: "local", AnalyticsOptIn: true, ReportTimezone: "Asia/Jakarta"}, nil
+				return entity.Settings{StorageMode: "local", ReportTimezone: "Asia/Jakarta"}, nil
 			},
 			setInitialBalanceFn: func(_ context.Context, amount int64) (entity.InitialBalance, error) {
 				if amount != 50000 {
@@ -286,12 +278,6 @@ func TestCategoryBudgetReportAndSettingsCommands(t *testing.T) {
 				return entity.InitialBalance{}, nil
 			},
 			resetInitialBalanceFn: func(context.Context) error { return nil },
-			setAnalyticsOptInFn: func(_ context.Context, optIn bool) error {
-				if !optIn {
-					t.Fatal("expected opt-in true")
-				}
-				return nil
-			},
 			setReportTimezoneFn: func(_ context.Context, timezone string) error {
 				if timezone != "UTC" {
 					t.Fatalf("unexpected timezone: %q", timezone)
@@ -315,8 +301,7 @@ func TestCategoryBudgetReportAndSettingsCommands(t *testing.T) {
 		{command: app.settingsCommand().Commands[0], args: []string{"show"}, wantContain: "Storage mode: local"},
 		{command: app.settingsCommand().Commands[1], args: []string{"set-initial-balance", "--amount", "500.00"}, wantContain: "Initial balance updated."},
 		{command: app.settingsCommand().Commands[2], args: []string{"reset-initial-balance"}, wantContain: "Initial balance reset."},
-		{command: app.settingsCommand().Commands[3], args: []string{"analytics", "--opt-in", "true"}, wantContain: "Analytics opt-in updated: true"},
-		{command: app.settingsCommand().Commands[4], args: []string{"report-timezone", "--timezone", "UTC"}, wantContain: "Report timezone updated."},
+		{command: app.settingsCommand().Commands[3], args: []string{"report-timezone", "--timezone", "UTC"}, wantContain: "Report timezone updated."},
 	}
 
 	for _, tc := range commands {

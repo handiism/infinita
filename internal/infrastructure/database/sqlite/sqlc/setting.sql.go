@@ -9,19 +9,6 @@ import (
 	"context"
 )
 
-const getAnalyticsConsent = `-- name: GetAnalyticsConsent :one
-SELECT id, analytics_opt_in
-FROM analytics_consent
-WHERE id = 1
-`
-
-func (q *Queries) GetAnalyticsConsent(ctx context.Context) (AnalyticsConsent, error) {
-	row := q.db.QueryRowContext(ctx, getAnalyticsConsent)
-	var i AnalyticsConsent
-	err := row.Scan(&i.ID, &i.AnalyticsOptIn)
-	return i, err
-}
-
 const getSetting = `-- name: GetSetting :one
 SELECT key, value
 FROM settings
@@ -33,17 +20,6 @@ func (q *Queries) GetSetting(ctx context.Context, key string) (Setting, error) {
 	var i Setting
 	err := row.Scan(&i.Key, &i.Value)
 	return i, err
-}
-
-const setAnalyticsConsent = `-- name: SetAnalyticsConsent :exec
-INSERT INTO analytics_consent (id, analytics_opt_in)
-VALUES (1, ?)
-ON CONFLICT(id) DO UPDATE SET analytics_opt_in = excluded.analytics_opt_in
-`
-
-func (q *Queries) SetAnalyticsConsent(ctx context.Context, analyticsOptIn int64) error {
-	_, err := q.db.ExecContext(ctx, setAnalyticsConsent, analyticsOptIn)
-	return err
 }
 
 const upsertSetting = `-- name: UpsertSetting :exec

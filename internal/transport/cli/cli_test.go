@@ -53,10 +53,6 @@ func TestCLIIntegrationCommands(t *testing.T) {
 	require.Equal(t, 0, code)
 	require.Contains(t, out, "Storage mode")
 
-	out, code = runCLI(t, bin, dataDir, "settings", "analytics", "--opt-in", "true")
-	require.Equal(t, 0, code)
-	require.Contains(t, out, "Analytics opt-in updated: true")
-
 	out, code = runCLI(t, bin, dataDir, "settings", "set-initial-balance", "--amount", "500.00")
 	require.Equal(t, 0, code)
 	require.Contains(t, out, "Initial balance updated")

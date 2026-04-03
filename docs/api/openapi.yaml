@@ -281,15 +281,11 @@ components:
       type: object
       required:
         - storageMode
-        - analyticsOptIn
         - reportTimezone
       properties:
         storageMode:
           type: string
           example: local
-        analyticsOptIn:
-          type: boolean
-          example: false
         reportTimezone:
           type: string
           description: IANA timezone name.
@@ -1018,43 +1014,6 @@ paths:
       responses:
         "200":
           description: Initial balance reset.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SuccessResponse"
-              example:
-                status: success
-                data: null
-                meta: null
-        "500":
-          description: Internal server error.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
-  /settings/analytics:
-    put:
-      operationId: setAnalyticsOptIn
-      summary: Update analytics opt-in
-      description: Enables or disables anonymous analytics event emission.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - analyticsOptIn
-              properties:
-                analyticsOptIn:
-                  type: boolean
-                  example: true
-            example:
-              analyticsOptIn: true
-      responses:
-        "200":
-          description: Analytics opt-in updated.
           content:
             application/json:
               schema:

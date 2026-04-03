@@ -342,7 +342,6 @@ func (h *Handler) GetSettings(w http.ResponseWriter, r *http.Request) {
 
 	_ = WriteSuccess(w, http.StatusOK, SettingsResponse{
 		StorageMode:    settings.StorageMode,
-		AnalyticsOptIn: settings.AnalyticsOptIn,
 		ReportTimezone: settings.ReportTimezone,
 	})
 }
@@ -385,22 +384,6 @@ func (h *Handler) SetInitialBalance(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) ResetInitialBalance(w http.ResponseWriter, r *http.Request) {
 	err := h.Settings.ResetInitialBalance(r.Context())
-	if err != nil {
-		_ = WriteError(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
-		return
-	}
-
-	_ = WriteSuccess(w, http.StatusOK, nil)
-}
-
-func (h *Handler) SetAnalyticsOptIn(w http.ResponseWriter, r *http.Request) {
-	var req SetAnalyticsOptInRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		_ = WriteError(w, http.StatusBadRequest, "INVALID_REQUEST", "failed to parse request body")
-		return
-	}
-
-	err := h.Settings.SetAnalyticsOptIn(r.Context(), req.AnalyticsOptIn)
 	if err != nil {
 		_ = WriteError(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return

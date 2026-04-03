@@ -26,14 +26,9 @@ func (r *SettingRepository) GetSettings(ctx context.Context) (entity.Settings, e
 	if err != nil {
 		return entity.Settings{}, fmt.Errorf("report timezone: %w", err)
 	}
-	consent, err := r.queries.GetAnalyticsConsent(ctx)
-	if err != nil {
-		return entity.Settings{}, fmt.Errorf("analytics consent: %w", err)
-	}
 	return entity.Settings{
 		StorageMode:    storage.Value,
 		ReportTimezone: timezone.Value,
-		AnalyticsOptIn: consent.AnalyticsOptIn == 1,
 	}, nil
 }
 
@@ -46,20 +41,4 @@ func (r *SettingRepository) SetStorageMode(ctx context.Context, mode string) err
 
 func (r *SettingRepository) SetReportTimezone(ctx context.Context, timezone string) error {
 	return r.queries.UpsertSetting(ctx, sqlc.UpsertSettingParams{Key: "report_timezone", Value: timezone})
-}
-
-func (r *SettingRepository) SetAnalyticsOptIn(ctx context.Context, optIn bool) error {
-	var consent int64
-	if optIn {
-		consent = 1
-	}
-	return r.queries.SetAnalyticsConsent(ctx, consent)
-}
-
-func (r *SettingRepository) GetAnalyticsOptIn(ctx context.Context) (bool, error) {
-	consent, err := r.queries.GetAnalyticsConsent(ctx)
-	if err != nil {
-		return false, err
-	}
-	return consent.AnalyticsOptIn == 1, nil
 }

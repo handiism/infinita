@@ -36,11 +36,6 @@ CREATE TABLE IF NOT EXISTS settings (
     value TEXT NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS analytics_consent (
-    id INTEGER PRIMARY KEY CHECK(id = 1),
-    analytics_opt_in INTEGER NOT NULL CHECK(analytics_opt_in IN (0,1))
-);
-
 CREATE TABLE IF NOT EXISTS initial_balance (
     id INTEGER PRIMARY KEY CHECK (id = 1),
     initial_balance_minor INTEGER NOT NULL CHECK(initial_balance_minor >= 0),
@@ -60,9 +55,6 @@ INSERT OR IGNORE INTO settings (key, value)
 VALUES
     ('storage_mode', 'local'),
     ('report_timezone', 'Asia/Jakarta');
-
-INSERT OR IGNORE INTO analytics_consent (id, analytics_opt_in)
-VALUES (1, 0);
 
 INSERT OR IGNORE INTO initial_balance (id, initial_balance_minor)
 VALUES (1, 0);

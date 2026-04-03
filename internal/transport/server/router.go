@@ -26,7 +26,6 @@ func NewRouter(h *Handler) *http.ServeMux {
 	mux.HandleFunc("PUT /settings/initial-balance", h.SetInitialBalance)
 	mux.HandleFunc("DELETE /settings/initial-balance", h.ResetInitialBalance)
 
-	mux.HandleFunc("PUT /settings/analytics", h.SetAnalyticsOptIn)
 	mux.HandleFunc("PUT /settings/report-timezone", h.SetReportTimezone)
 
 	return mux

@@ -1,5 +1,4 @@
 erDiagram
-    setting ||--|| analytics_consent : controls
     setting ||--|| initial_balance : configures
     category ||--o{ finance_transaction : classified_by
     category ||--o{ budget : has_limit
@@ -7,11 +6,6 @@ erDiagram
     setting {
         text key PK
         text value
-    }
-
-    analytics_consent {
-        integer id PK "singleton (id = 1)"
-        integer analytics_opt_in "0 or 1"
     }
 
     initial_balance {

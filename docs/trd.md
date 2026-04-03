@@ -97,7 +97,7 @@ This project adopts **Hexagonal (Ports & Adapters)** architecture adapted from `
    - CLI communicates with Server adapter via localhost HTTP.
 
 4. **Infrastructure Layer (Output Port Implementations)**
-    - SQLite repositories and other runtime adapters (config, observability, analytics emitter if enabled).
+    - SQLite repositories and other runtime adapters (config).
     - Implements application output ports.
 
 5. **Bootstrap / Composition Root**
@@ -263,11 +263,9 @@ Notes:
 - `TRD-NFR-001` (Performance): For familiar users, transaction entry flow (command issue to success response) must complete within 15 seconds in benchmark profile `MVP-CLI-BENCH-01`.
 - `TRD-NFR-002` (Reliability): Core CLI scenarios (`add`, `list`, `budget`, `report`) must pass with at least 99% success across a minimum 1,000 automated executions.
 - `TRD-NFR-003` (Scalability): Listing and reporting must remain functionally correct for datasets up to 100,000 local transactions.
-- `TRD-OBS-001` (Observability): No telemetry events are emitted by default; analytics emission must be gated behind explicit opt-in setting. Implementation note: consent/settings support is part of MVP command surface, while analytics event emission may be delivered in a later hardening phase.
-- `TRD-NFR-004` (Compliance/Privacy): Analytics payloads, if enabled, must exclude raw financial content (amount, description, categories, transaction text).
+- `TRD-OBS-001` (Observability): No telemetry events are emitted by the application.
+- `TRD-NFR-004` (Compliance/Privacy): All user data remains local on the device with no remote transmission.
 - `TRD-NFR-005` (Mode Transparency): CLI settings output must always show active storage mode as `local` in MVP.
-- `TRD-OBS-002` (Consent Control): Users must be able to review and revoke analytics consent at any time via settings command; revocation must stop new analytics emission immediately.
-- `TRD-OBS-003` (Analytics Payload Contract): Minimum analytics payload is limited to `{anonymousInstallId, eventType, timestampBucket}` and must not include any financial payload fields.
 
 ## API / Data Contracts
 
@@ -281,7 +279,6 @@ Notes:
 - `infinita report daily --date <YYYY-MM-DD>`
 - `infinita report monthly --month <YYYY-MM>`
 - `infinita settings show`
-- `infinita settings analytics --opt-in <true|false>`
 - `infinita settings report-timezone --timezone <IANA name>`
 - `infinita settings set-initial-balance --amount <decimal>`
 - `infinita settings reset-initial-balance`
@@ -306,7 +303,6 @@ The embedded HTTP server exposes REST endpoints for all business operations. Com
 | `/reports/daily` | GET | Get daily summary |
 | `/reports/monthly` | GET | Get monthly summary |
 | `/settings` | GET | Get current settings |
-| `/settings/analytics` | PUT | Update analytics opt-in |
 | `/settings/report-timezone` | PUT | Update report timezone |
 | `/settings/initial-balance` | PUT | Set initial balance |
 | `/settings/initial-balance` | DELETE | Reset initial balance to 0 |

@@ -379,7 +379,6 @@ func (c *Client) Show(ctx context.Context) (entity.Settings, error) {
 	}
 	return entity.Settings{
 		StorageMode:    resp.StorageMode,
-		AnalyticsOptIn: resp.AnalyticsOptIn,
 		ReportTimezone: resp.ReportTimezone,
 	}, nil
 }
@@ -402,13 +401,6 @@ func (c *Client) SetInitialBalance(ctx context.Context, amount int64) (entity.In
 
 func (c *Client) ResetInitialBalance(ctx context.Context) error {
 	return c.delete(ctx, "/settings/initial-balance", nil)
-}
-
-func (c *Client) SetAnalyticsOptIn(ctx context.Context, optIn bool) error {
-	req := SetAnalyticsOptInRequest{
-		AnalyticsOptIn: optIn,
-	}
-	return c.put(ctx, "/settings/analytics", req, nil)
 }
 
 func (c *Client) SetReportTimezone(ctx context.Context, timezone string) error {

@@ -31,4 +31,4 @@
 
 ## Privacy Notes
 - Telemetry is off by default.
-- Analytics consent is stored locally and can be reviewed or revoked with `infinita settings show` and `infinita settings analytics --opt-in <true|false>`.
+- All data stays local on the user's device with no remote transmission.

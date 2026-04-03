@@ -33,14 +33,6 @@ func (stubSettingsRepo) SetReportTimezone(context.Context, string) error {
 	return nil
 }
 
-func (stubSettingsRepo) SetAnalyticsOptIn(context.Context, bool) error {
-	return nil
-}
-
-func (stubSettingsRepo) GetAnalyticsOptIn(context.Context) (bool, error) {
-	return false, nil
-}
-
 func TestResolveDataDirUsesEnvironmentOverride(t *testing.T) {
 	t.Setenv(envDataDir, "/tmp/infinita-bootstrap-test")
 

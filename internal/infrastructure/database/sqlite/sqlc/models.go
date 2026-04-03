@@ -4,11 +4,6 @@
 
 package sqlc
 
-type AnalyticsConsent struct {
-	ID             int64 `json:"id"`
-	AnalyticsOptIn int64 `json:"analytics_opt_in"`
-}
-
 type Category struct {
 	ID            int64   `json:"id"`
 	Name          string  `json:"name"`

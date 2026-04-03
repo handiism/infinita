@@ -34,10 +34,6 @@ func (u *SettingsUseCase) ResetInitialBalance(ctx context.Context) error {
 	return err
 }
 
-func (u *SettingsUseCase) SetAnalyticsOptIn(ctx context.Context, optIn bool) error {
-	return u.settingsRepo.SetAnalyticsOptIn(ctx, optIn)
-}
-
 func (u *SettingsUseCase) SetReportTimezone(ctx context.Context, timezone string) error {
 	zone, err := validation.ParseTimezone(timezone)
 	if err != nil {
