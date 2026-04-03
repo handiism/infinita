@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"time"
@@ -91,7 +92,9 @@ func (s *Server) WaitForReady(ctx context.Context, baseURL string) error {
 			if err != nil {
 				continue
 			}
-			_ = resp.Body.Close()
+			if err := resp.Body.Close(); err != nil {
+				log.Printf("server readiness check: failed to close health response body: %v", err)
+			}
 
 			if resp.StatusCode == http.StatusOK {
 				return nil

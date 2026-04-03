@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"embed"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 
@@ -27,11 +28,15 @@ func OpenDatabase(dataDir string) (*sql.DB, error) {
 		return nil, fmt.Errorf("open sqlite: %w", err)
 	}
 	if err := runMigrations(db); err != nil {
-		_ = db.Close()
+		if closeErr := db.Close(); closeErr != nil {
+			log.Printf("close database after migration failure: %v", closeErr)
+		}
 		return nil, fmt.Errorf("run migrations: %w", err)
 	}
 	if err := os.Chmod(dbPath, 0o600); err != nil && !os.IsNotExist(err) {
-		_ = db.Close()
+		if closeErr := db.Close(); closeErr != nil {
+			log.Printf("close database after chmod failure: %v", closeErr)
+		}
 		return nil, fmt.Errorf("chmod db: %w", err)
 	}
 	return db, nil

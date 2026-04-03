@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"time"
@@ -52,7 +53,11 @@ func (c *Client) performRequest(ctx context.Context, method, path string, body i
 	if err != nil {
 		return Response{}, &ClientError{Code: "CONNECTION_ERROR", Message: err.Error()}
 	}
-	defer func() { _ = resp.Body.Close() }()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			log.Printf("client performRequest: failed to close response body: %v", err)
+		}
+	}()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {

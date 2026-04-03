@@ -12,7 +12,11 @@ import (
 
 func TestInitialBalanceRepository_GetAndSet(t *testing.T) {
 	db := newTestDB(t)
-	defer func() { _ = db.Close() }()
+	defer func() {
+		if err := db.Close(); err != nil {
+			t.Logf("close test db: %v", err)
+		}
+	}()
 	ctx := context.Background()
 	repo := NewInitialBalanceRepository(sqlc.New(db))
 

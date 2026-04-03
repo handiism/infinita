@@ -68,7 +68,11 @@ func TestCLIIntegrationCommands(t *testing.T) {
 	dbPath := filepath.Join(dataDir, "infinita.db")
 	db, err := sql.Open("sqlite3", dbPath)
 	require.NoError(t, err)
-	t.Cleanup(func() { _ = db.Close() })
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Logf("failed to close sqlite db: %v", err)
+		}
+	})
 
 	var initialBalanceMinor int64
 	err = db.QueryRow(`SELECT initial_balance_minor FROM initial_balance WHERE id = 1`).Scan(&initialBalanceMinor)
@@ -124,7 +128,11 @@ func TestCLIRejectsNonLocalStorageMode(t *testing.T) {
 	dbPath := filepath.Join(dataDir, "infinita.db")
 	db, err := sql.Open("sqlite3", dbPath)
 	require.NoError(t, err)
-	t.Cleanup(func() { _ = db.Close() })
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Logf("failed to close sqlite db: %v", err)
+		}
+	})
 
 	_, err = db.Exec(`UPDATE settings SET value = 'remote' WHERE key = 'storage_mode'`)
 	require.NoError(t, err)

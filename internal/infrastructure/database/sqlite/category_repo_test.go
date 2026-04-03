@@ -12,7 +12,11 @@ import (
 
 func TestCategoryRepository_ListReturnsSeededDefaults(t *testing.T) {
 	db := newTestDB(t)
-	defer func() { _ = db.Close() }()
+	defer func() {
+		if err := db.Close(); err != nil {
+			t.Logf("close test db: %v", err)
+		}
+	}()
 	repo := NewCategoryRepository(sqlc.New(db))
 
 	cats, err := repo.List(context.Background())
@@ -32,7 +36,11 @@ func TestCategoryRepository_ListReturnsSeededDefaults(t *testing.T) {
 
 func TestCategoryRepository_CreateAndGetByNormalizedKey(t *testing.T) {
 	db := newTestDB(t)
-	defer func() { _ = db.Close() }()
+	defer func() {
+		if err := db.Close(); err != nil {
+			t.Logf("close test db: %v", err)
+		}
+	}()
 	repo := NewCategoryRepository(sqlc.New(db))
 
 	created, err := repo.Create(context.Background(), "Entertainment", "entertainment", "Movies and games")
@@ -50,7 +58,11 @@ func TestCategoryRepository_CreateAndGetByNormalizedKey(t *testing.T) {
 
 func TestCategoryRepository_CreateWithoutDescription(t *testing.T) {
 	db := newTestDB(t)
-	defer func() { _ = db.Close() }()
+	defer func() {
+		if err := db.Close(); err != nil {
+			t.Logf("close test db: %v", err)
+		}
+	}()
 	repo := NewCategoryRepository(sqlc.New(db))
 
 	created, err := repo.Create(context.Background(), "Misc", "misc", "")
@@ -61,7 +73,11 @@ func TestCategoryRepository_CreateWithoutDescription(t *testing.T) {
 
 func TestCategoryRepository_CreateDuplicateReturnsDomainError(t *testing.T) {
 	db := newTestDB(t)
-	defer func() { _ = db.Close() }()
+	defer func() {
+		if err := db.Close(); err != nil {
+			t.Logf("close test db: %v", err)
+		}
+	}()
 	repo := NewCategoryRepository(sqlc.New(db))
 
 	_, err := repo.Create(context.Background(), "Food", "food", "duplicate of seeded")
@@ -74,7 +90,11 @@ func TestCategoryRepository_CreateDuplicateReturnsDomainError(t *testing.T) {
 
 func TestCategoryRepository_GetByNormalizedKeyUnknownReturnsError(t *testing.T) {
 	db := newTestDB(t)
-	defer func() { _ = db.Close() }()
+	defer func() {
+		if err := db.Close(); err != nil {
+			t.Logf("close test db: %v", err)
+		}
+	}()
 	repo := NewCategoryRepository(sqlc.New(db))
 
 	_, err := repo.GetByNormalizedKey(context.Background(), "nonexistent")
@@ -87,7 +107,11 @@ func TestCategoryRepository_GetByNormalizedKeyUnknownReturnsError(t *testing.T) 
 
 func TestCategoryRepository_ListAfterCreate(t *testing.T) {
 	db := newTestDB(t)
-	defer func() { _ = db.Close() }()
+	defer func() {
+		if err := db.Close(); err != nil {
+			t.Logf("close test db: %v", err)
+		}
+	}()
 	repo := NewCategoryRepository(sqlc.New(db))
 
 	_, err := repo.Create(context.Background(), "Custom", "custom", "user-defined")

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -36,7 +37,11 @@ func main() {
 	if err != nil {
 		exitRuntime(fmt.Errorf("database: %w", err))
 	}
-	defer func() { _ = db.Close() }()
+	defer func() {
+		if closeErr := db.Close(); closeErr != nil {
+			log.Printf("close database: %v", closeErr)
+		}
+	}()
 
 	queries := sqlc.New(db)
 	categoryRepo := sqlite.NewCategoryRepository(queries)

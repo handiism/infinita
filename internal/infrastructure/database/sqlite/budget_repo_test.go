@@ -12,7 +12,11 @@ import (
 
 func TestBudgetRepository_UpsertAndListByMonth(t *testing.T) {
 	db := newTestDB(t)
-	defer func() { _ = db.Close() }()
+	defer func() {
+		if err := db.Close(); err != nil {
+			t.Logf("close test db: %v", err)
+		}
+	}()
 	ctx := context.Background()
 	queries := sqlc.New(db)
 	catRepo := NewCategoryRepository(queries)
@@ -38,7 +42,11 @@ func TestBudgetRepository_UpsertAndListByMonth(t *testing.T) {
 
 func TestBudgetRepository_UpsertUpdatesExisting(t *testing.T) {
 	db := newTestDB(t)
-	defer func() { _ = db.Close() }()
+	defer func() {
+		if err := db.Close(); err != nil {
+			t.Logf("close test db: %v", err)
+		}
+	}()
 	ctx := context.Background()
 	queries := sqlc.New(db)
 	catRepo := NewCategoryRepository(queries)
@@ -58,7 +66,11 @@ func TestBudgetRepository_UpsertUpdatesExisting(t *testing.T) {
 
 func TestBudgetRepository_ListByMonthEmpty(t *testing.T) {
 	db := newTestDB(t)
-	defer func() { _ = db.Close() }()
+	defer func() {
+		if err := db.Close(); err != nil {
+			t.Logf("close test db: %v", err)
+		}
+	}()
 	budgetRepo := NewBudgetRepository(sqlc.New(db))
 
 	statuses, err := budgetRepo.ListBudgetsByMonth(context.Background(), "2025-01")
@@ -68,7 +80,11 @@ func TestBudgetRepository_ListByMonthEmpty(t *testing.T) {
 
 func TestBudgetRepository_SpentReflectsTransactions(t *testing.T) {
 	db := newTestDB(t)
-	defer func() { _ = db.Close() }()
+	defer func() {
+		if err := db.Close(); err != nil {
+			t.Logf("close test db: %v", err)
+		}
+	}()
 	ctx := context.Background()
 	queries := sqlc.New(db)
 	catRepo := NewCategoryRepository(queries)
@@ -101,7 +117,11 @@ func TestBudgetRepository_SpentReflectsTransactions(t *testing.T) {
 
 func TestBudgetRepository_OverLimitDetected(t *testing.T) {
 	db := newTestDB(t)
-	defer func() { _ = db.Close() }()
+	defer func() {
+		if err := db.Close(); err != nil {
+			t.Logf("close test db: %v", err)
+		}
+	}()
 	ctx := context.Background()
 	queries := sqlc.New(db)
 	catRepo := NewCategoryRepository(queries)
@@ -129,7 +149,11 @@ func TestBudgetRepository_OverLimitDetected(t *testing.T) {
 
 func TestBudgetRepository_MultipleCategoriesSortedByName(t *testing.T) {
 	db := newTestDB(t)
-	defer func() { _ = db.Close() }()
+	defer func() {
+		if err := db.Close(); err != nil {
+			t.Logf("close test db: %v", err)
+		}
+	}()
 	ctx := context.Background()
 	queries := sqlc.New(db)
 	catRepo := NewCategoryRepository(queries)
@@ -152,7 +176,11 @@ func TestBudgetRepository_MultipleCategoriesSortedByName(t *testing.T) {
 
 func TestBudgetRepository_IncomeNotCountedAsSpent(t *testing.T) {
 	db := newTestDB(t)
-	defer func() { _ = db.Close() }()
+	defer func() {
+		if err := db.Close(); err != nil {
+			t.Logf("close test db: %v", err)
+		}
+	}()
 	ctx := context.Background()
 	queries := sqlc.New(db)
 	catRepo := NewCategoryRepository(queries)
