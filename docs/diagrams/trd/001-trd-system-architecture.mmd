@@ -1,6 +1,10 @@
 flowchart LR
     U[User] --> CLI[CLI Layer\nCommands: add/list/budget/report/settings]
 
+    subgraph ENTRY["Entrypoint Wiring"]
+        BOOT[Bootstrap / Composition Root\nResolve data dir\nOpen SQLite\nBuild repos/use cases/server]
+    end
+
     subgraph TRANSPORT["Transport Layer"]
         CLIENT[HTTP Client\nSerialize CLI input to JSON\nDeserialize server response]
         SERVER[HTTP Server\nREST API Handlers\nJSend Response Format\nlocalhost only]
@@ -37,7 +41,9 @@ flowchart LR
         STORE[(SQLite Local DB\nOn-device)]
     end
 
-    CLI --> CLIENT
+    CLI --> BOOT
+    BOOT --> CLIENT
+    BOOT --> SERVER
     CLIENT --> SERVER
 
     SERVER --> TX
@@ -69,3 +75,6 @@ flowchart LR
     IREPO --> REPO
     SREPO --> REPO
     REPO --> STORE
+
+    SET -. analyticsOptIn .-> ANA
+    ANA -. emits anonymous events only .-> SERVER

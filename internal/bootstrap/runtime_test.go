@@ -1,12 +1,14 @@
-package main
+package bootstrap
 
 import (
 	"context"
 	"errors"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/handiism/infinita/internal/domain/entity"
 )
@@ -40,14 +42,14 @@ func (stubSettingsRepo) GetAnalyticsOptIn(context.Context) (bool, error) {
 }
 
 func TestResolveDataDirUsesEnvironmentOverride(t *testing.T) {
-	t.Setenv(envDataDir, "/tmp/infinita-test")
+	t.Setenv(envDataDir, "/tmp/infinita-bootstrap-test")
 
-	got, err := resolveDataDir()
+	got, err := ResolveDataDir()
 	if err != nil {
-		t.Fatalf("resolveDataDir() error = %v", err)
+		t.Fatalf("ResolveDataDir() error = %v", err)
 	}
-	if got != "/tmp/infinita-test" {
-		t.Fatalf("resolveDataDir() = %q, want %q", got, "/tmp/infinita-test")
+	if got != "/tmp/infinita-bootstrap-test" {
+		t.Fatalf("ResolveDataDir() = %q, want %q", got, "/tmp/infinita-bootstrap-test")
 	}
 }
 
@@ -60,12 +62,12 @@ func TestResolveDataDirUsesUserConfigDir(t *testing.T) {
 	}
 	want := filepath.Join(configDir, "infinita")
 
-	got, err := resolveDataDir()
+	got, err := ResolveDataDir()
 	if err != nil {
-		t.Fatalf("resolveDataDir() error = %v", err)
+		t.Fatalf("ResolveDataDir() error = %v", err)
 	}
 	if got != want {
-		t.Fatalf("resolveDataDir() = %q, want %q", got, want)
+		t.Fatalf("ResolveDataDir() = %q, want %q", got, want)
 	}
 }
 
@@ -104,5 +106,49 @@ func TestEnforceLocalOnly(t *testing.T) {
 				t.Fatalf("enforceLocalOnly() error = %v, want substring %q", err, tt.wantErr)
 			}
 		})
+	}
+}
+
+func TestNewRuntimeCreatesUsableServer(t *testing.T) {
+	dataDir := t.TempDir()
+	runtime, err := NewRuntime(context.Background(), dataDir)
+	if err != nil {
+		t.Fatalf("NewRuntime() error = %v", err)
+	}
+	defer func() {
+		if err := runtime.Close(); err != nil {
+			t.Fatalf("runtime.Close() error = %v", err)
+		}
+	}()
+
+	if runtime.Server == nil {
+		t.Fatal("NewRuntime() returned nil Server")
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	portCh, err := runtime.Server.Start(ctx)
+	if err != nil {
+		t.Fatalf("runtime.Server.Start() error = %v", err)
+	}
+
+	var port int
+	select {
+	case port = <-portCh:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for server port")
+	}
+
+	readyCtx, readyCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer readyCancel()
+	if err := runtime.Server.WaitForReady(readyCtx, "http://127.0.0.1:"+strconv.Itoa(port)); err != nil {
+		t.Fatalf("runtime.Server.WaitForReady() error = %v", err)
+	}
+
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer shutdownCancel()
+	if err := runtime.Server.Shutdown(shutdownCtx); err != nil {
+		t.Fatalf("runtime.Server.Shutdown() error = %v", err)
 	}
 }
