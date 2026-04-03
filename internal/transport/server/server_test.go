@@ -134,12 +134,12 @@ func TestStartOnListenerReportsServeErrors(t *testing.T) {
 	}
 
 	select {
-	case err := <-server.Errors():
+	case err := <-server.Err():
 		if err == nil {
-			t.Fatal("Server.Errors() returned nil error")
+			t.Fatal("Server.Err() returned nil error")
 		}
 		if !strings.Contains(err.Error(), "closed") {
-			t.Fatalf("Server.Errors() error = %v, want closed-listener error", err)
+			t.Fatalf("Server.Err() error = %v, want closed-listener error", err)
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("timed out waiting for serve error")

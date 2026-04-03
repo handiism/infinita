@@ -82,6 +82,37 @@ func TestResolveSettingsFileFallsBackToDefault(t *testing.T) {
 	}
 }
 
+func TestResolvePathsUsesConfigArgumentOverride(t *testing.T) {
+	t.Setenv(envDataDir, "/tmp/infinita-bootstrap-test")
+	t.Setenv(envSettingsFile, "")
+
+	got, err := ResolvePaths([]string{"infinita", "--config", "/tmp/override.yaml"})
+	if err != nil {
+		t.Fatalf("ResolvePaths() error = %v", err)
+	}
+
+	if got.DataDir != "/tmp/infinita-bootstrap-test" {
+		t.Fatalf("ResolvePaths().DataDir = %q, want %q", got.DataDir, "/tmp/infinita-bootstrap-test")
+	}
+	if got.SettingsFile != "/tmp/override.yaml" {
+		t.Fatalf("ResolvePaths().SettingsFile = %q, want %q", got.SettingsFile, "/tmp/override.yaml")
+	}
+}
+
+func TestResolvePathsFromDataDirFallsBackToResolvedSettingsFile(t *testing.T) {
+	t.Setenv(envSettingsFile, "")
+
+	got := ResolvePathsFromDataDir("/tmp/infinita-bootstrap-test", nil)
+	want := filepath.Join("/tmp/infinita-bootstrap-test", "settings.yaml")
+
+	if got.DataDir != "/tmp/infinita-bootstrap-test" {
+		t.Fatalf("ResolvePathsFromDataDir().DataDir = %q, want %q", got.DataDir, "/tmp/infinita-bootstrap-test")
+	}
+	if got.SettingsFile != want {
+		t.Fatalf("ResolvePathsFromDataDir().SettingsFile = %q, want %q", got.SettingsFile, want)
+	}
+}
+
 func TestEnforceLocalOnly(t *testing.T) {
 	tests := []struct {
 		name    string

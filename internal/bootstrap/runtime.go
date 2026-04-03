@@ -17,10 +17,15 @@ import (
 
 const envDataDir = "INFINITA_DATA_DIR"
 const envSettingsFile = "INFINITA_SETTINGS_FILE"
+const serverLifecycleTimeout = 5
+
+type DBCloser interface {
+	Close() error
+}
 
 type Runtime struct {
 	Server *transportserver.Server
-	db     interface{ Close() error }
+	db     DBCloser
 }
 
 func ResolveDataDir() (string, error) {

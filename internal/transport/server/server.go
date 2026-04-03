@@ -3,9 +3,9 @@ package server
 import (
 	"context"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/handiism/infinita/internal/application/port/input"
@@ -15,6 +15,8 @@ type Server struct {
 	httpServer *http.Server
 	port       int
 	errCh      chan error
+	startOnce  sync.Once
+	startErr   error
 }
 
 func New(
@@ -35,16 +37,17 @@ func New(
 	}
 }
 
-func (s *Server) Errors() <-chan error {
-	return s.errCh
-}
-
 func (s *Server) Start(ctx context.Context) (<-chan int, error) {
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		return nil, fmt.Errorf("failed to create listener: %w", err)
 	}
-	return s.StartOnListener(ctx, listener)
+	portCh, err := s.StartOnListener(ctx, listener)
+	if err != nil {
+		listener.Close()
+		return nil, err
+	}
+	return portCh, nil
 }
 
 func (s *Server) StartOnListener(ctx context.Context, listener net.Listener) (<-chan int, error) {
@@ -57,30 +60,35 @@ func (s *Server) StartOnListener(ctx context.Context, listener net.Listener) (<-
 		return nil, fmt.Errorf("listener address must be TCP, got %T", listener.Addr())
 	}
 
-	s.port = addr.Port
-	s.errCh = make(chan error, 1)
-
 	portCh := make(chan int, 1)
 
-	// Serve requests and report fatal errors to callers via s.errCh.
-	go func() {
-		portCh <- s.port
-		if err := s.httpServer.Serve(listener); err != nil && err != http.ErrServerClosed {
-			fmt.Printf("server error: %v\n", err)
-			select {
-			case s.errCh <- err:
-			default:
-			}
-		}
-	}()
+	s.startOnce.Do(func() {
+		s.port = addr.Port
 
-	// Best-effort shutdown when the context is cancelled.
-	go func() {
-		<-ctx.Done()
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		_ = s.httpServer.Shutdown(shutdownCtx)
-	}()
+		// Serve requests and report fatal errors to callers via s.errCh.
+		go func() {
+			portCh <- s.port
+			if err := s.httpServer.Serve(listener); err != nil && err != http.ErrServerClosed {
+				fmt.Printf("server error: %v\n", err)
+				select {
+				case s.errCh <- err:
+				default:
+				}
+			}
+		}()
+
+		// Best-effort shutdown when the context is cancelled.
+		go func() {
+			<-ctx.Done()
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			_ = s.httpServer.Shutdown(shutdownCtx)
+		}()
+	})
+
+	if s.startErr != nil {
+		return nil, s.startErr
+	}
 
 	return portCh, nil
 }
@@ -123,7 +131,7 @@ func (s *Server) WaitForReady(ctx context.Context, baseURL string) error {
 				continue
 			}
 			if err := resp.Body.Close(); err != nil {
-				log.Printf("server readiness check: failed to close health response body: %v", err)
+				continue
 			}
 
 			if resp.StatusCode == http.StatusOK {
@@ -138,7 +146,14 @@ func (s *Server) Err() <-chan error {
 }
 
 func (s *Server) Shutdown(ctx context.Context) error {
-	shutdownCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	var shutdownCtx context.Context
+	var cancel context.CancelFunc
+
+	if deadline, ok := ctx.Deadline(); ok {
+		shutdownCtx, cancel = context.WithDeadline(context.Background(), deadline)
+	} else {
+		shutdownCtx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
+	}
 	defer cancel()
 
 	if err := s.httpServer.Shutdown(shutdownCtx); err != nil {
