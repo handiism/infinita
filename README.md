@@ -27,6 +27,13 @@ make build
 # or: go build -o bin/infinita ./cmd/cli
 ```
 
+### Install
+
+```bash
+go install ./cmd/cli
+# or from any directory: go install github.com/handiism/infinita/cmd/cli@latest
+```
+
 ### Run
 
 ```bash
