@@ -47,7 +47,7 @@ func NewBootstrap(ctx context.Context, args []string) (*Bootstrap, error) {
 		return nil, fmt.Errorf("determine runtime paths: %w", err)
 	}
 
-	runtime, err := NewRuntime(ctx, paths.DataDir, paths.SettingsFile)
+	runtime, err := NewRuntime(ctx, paths.DataDir, paths.SettingsFile, paths.IsDefaultConfig)
 	if err != nil {
 		return nil, fmt.Errorf("initialize runtime: %w", err)
 	}
@@ -89,13 +89,13 @@ func ResolveSettingsFile(dataDir string) string {
 }
 
 // NewRuntime creates a new Runtime with the database, repositories, use cases, and server.
-func NewRuntime(ctx context.Context, dataDir string, settingsFile string) (*Runtime, error) {
+func NewRuntime(ctx context.Context, dataDir string, settingsFile string, isDefaultConfig bool) (*Runtime, error) {
 	db, queries, err := openDatabase(dataDir)
 	if err != nil {
 		return nil, err
 	}
 
-	repos := wireRepositories(queries, settingsFile)
+	repos := wireRepositories(queries, settingsFile, isDefaultConfig)
 
 	if err := enforceLocalOnly(ctx, repos.Settings); err != nil {
 		_ = db.Close()
@@ -146,12 +146,12 @@ type repositories struct {
 }
 
 // wireRepositories creates all repositories with the given database queries and settings path.
-func wireRepositories(queries *sqlc.Queries, settingsFile string) *repositories {
+func wireRepositories(queries *sqlc.Queries, settingsFile string, isDefaultConfig bool) *repositories {
 	return &repositories{
 		Category:       sqlite.NewCategoryRepository(queries),
 		Transaction:    sqlite.NewTransactionRepository(queries),
 		Budget:         sqlite.NewBudgetRepository(queries),
-		Settings:       infinitasettings.NewSettingsRepository(settingsFile),
+		Settings:       infinitasettings.NewSettingsRepository(settingsFile, isDefaultConfig),
 		InitialBalance: sqlite.NewInitialBalanceRepository(queries),
 	}
 }

@@ -1,13 +1,12 @@
 package cli
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"io"
 	"strings"
 
-	ucli "github.com/urfave/cli/v3"
+	"github.com/spf13/cobra"
 
 	"github.com/handiism/infinita/internal/application/port/input"
 	"github.com/handiism/infinita/internal/application/validation"
@@ -15,6 +14,30 @@ import (
 	"github.com/handiism/infinita/internal/domain/valueobject"
 	transportclient "github.com/handiism/infinita/internal/transport/client"
 )
+
+// helpTemplate is a custom help template that ensures the help command
+// always appears last in the available commands list.
+const helpTemplate = `{{with (or .Long .Short)}}{{. | trimTrailingWhitespaces}}
+
+{{end}}Usage:{{if .Runnable}}
+  {{.UseLine}}{{end}}{{if .HasAvailableSubCommands}}
+  {{.CommandPath}} [command]{{end}}{{if .HasAvailableSubCommands}}
+
+Available Commands:{{range .Commands}}{{if and .IsAvailableCommand (ne .Name "help") (ne .Name "completion")}}
+  {{rpad .Name .NamePadding }} {{.Short}}{{end}}{{end}}{{range .Commands}}{{if and .IsAvailableCommand (eq .Name "completion")}}
+  {{rpad .Name .NamePadding }} {{.Short}}{{end}}{{end}}{{end}}{{if .HasAvailableLocalFlags}}
+
+Flags:
+{{.LocalFlags.FlagUsages | trimTrailingWhitespaces}}{{end}}{{if .HasAvailableInheritedFlags}}
+
+Global Flags:
+{{.InheritedFlags.FlagUsages | trimTrailingWhitespaces}}{{end}}{{if .HasExample}}
+
+Examples:
+{{.Example}}{{end}}{{if .HasAvailableSubCommands}}
+
+Use "{{.CommandPath}} [command] --help" for more information about a command.{{end}}
+`
 
 // App is the CLI application.
 type App struct {
@@ -51,57 +74,54 @@ func NewApp(
 	}
 }
 
-func (a *App) Command() *ucli.Command {
-	cmd := &ucli.Command{
-		Name:      "infinita",
-		Usage:     "Personal finance CLI",
-		UsageText: "infinita <command> [command options]",
-		Writer:    a.stdout,
-		ErrWriter: a.stderr,
-		Flags: []ucli.Flag{
-			&ucli.StringFlag{
-				Name:    "config",
-				Usage:   "Path to settings YAML file",
-				Sources: ucli.EnvVars("INFINITA_SETTINGS_FILE"),
-			},
+// Command returns the root cobra command.
+func (a *App) Command() *cobra.Command {
+	rootCmd := &cobra.Command{
+		Use:           "infinita",
+		Short:         "Personal finance CLI",
+		Long:          "infinita - Personal finance CLI",
+		SilenceErrors: true,
+		SilenceUsage:  true,
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			// If --config was provided on the root command, use it to override settings file
+			if configFlag := cmd.Root().Flags().Lookup("config"); configFlag != nil {
+				if configPath := configFlag.Value.String(); configPath != "" {
+					a.configPath = configPath
+				}
+			}
+			return nil
 		},
-		Commands: []*ucli.Command{
-			a.addCommand(),
-			a.listCommand(),
-			a.categoryCommand(),
-			a.budgetCommand(),
-			a.reportCommand(),
-			a.settingsCommand(),
-		},
-		Action: func(ctx context.Context, cmd *ucli.Command) error {
-			_ = ucli.ShowRootCommandHelp(cmd)
-			return cliExitError(domainerror.ErrMissingCommand.WithHint("select one of the available commands"), 2)
-		},
-		OnUsageError: func(ctx context.Context, cmd *ucli.Command, err error, _ bool) error {
-			return cliExitError(err, 2)
-		},
-		CommandNotFound: func(ctx context.Context, cmd *ucli.Command, command string) {
-			_, _ = fmt.Fprintln(cmd.ErrWriter, domainerror.ErrUnknownCommand.WithField("command").WithHint(fmt.Sprintf("'%s' is not a known command", command)).Error())
-			ucli.ShowRootCommandHelpAndExit(cmd, 2)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			_ = cmd.Help()
+			return nil
 		},
 	}
 
-	return cmd
+	rootCmd.Flags().String("config", "", "Path to settings YAML file")
+
+	rootCmd.AddCommand(
+		a.addCommand(),
+		a.listCommand(),
+		a.categoryCommand(),
+		a.budgetCommand(),
+		a.reportCommand(),
+		a.settingsCommand(),
+	)
+
+	// Set custom help template to ensure help appears last
+	rootCmd.SetHelpTemplate(helpTemplate)
+	// Disable the default help command, users should use --help flag instead
+	rootCmd.SetHelpCommand(&cobra.Command{Hidden: true})
+
+	return rootCmd
 }
 
-func (a *App) addCommand() *ucli.Command {
-	return &ucli.Command{
-		Name:      "add",
-		Usage:     "Add a transaction",
-		UsageText: "infinita add --type <income|expense> --amount <decimal> --category <name> --date <YYYY-MM-DD> [--description <text>]",
-		Flags: []ucli.Flag{
-			&ucli.StringFlag{Name: "type"},
-			&ucli.StringFlag{Name: "amount"},
-			&ucli.StringFlag{Name: "category"},
-			&ucli.StringFlag{Name: "date"},
-			&ucli.StringFlag{Name: "description"},
-		},
-		Action: func(ctx context.Context, cmd *ucli.Command) error {
+func (a *App) addCommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "add",
+		Short: "Add a transaction",
+		Long:  "Add a transaction",
+		RunE: func(cmd *cobra.Command, args []string) error {
 			amountText, err := requiredString(cmd, "amount")
 			if err != nil {
 				return cliExitError(err, 2)
@@ -122,281 +142,313 @@ func (a *App) addCommand() *ucli.Command {
 			if err != nil {
 				return cliExitError(err, 2)
 			}
-			if _, err := a.txnUseCase.AddTransaction(ctx, entryType, amount, category, date, cmd.String("description")); err != nil {
+			description, _ := cmd.Flags().GetString("description")
+			if _, err := a.txnUseCase.AddTransaction(cmd.Context(), entryType, amount, category, date, description); err != nil {
 				return cliExitError(err, exitCode(err))
 			}
-			_, _ = fmt.Fprintln(cmd.Writer, "Transaction recorded.")
+			_, _ = fmt.Fprintln(a.stdout, "Transaction recorded.")
 			return nil
 		},
 	}
+
+	cmd.Flags().String("type", "", "Transaction type (income or expense)")
+	cmd.Flags().String("amount", "", "Transaction amount")
+	cmd.Flags().String("category", "", "Category name")
+	cmd.Flags().String("date", "", "Transaction date (YYYY-MM-DD)")
+	cmd.Flags().String("description", "", "Transaction description")
+
+	return cmd
 }
 
-func (a *App) listCommand() *ucli.Command {
-	return &ucli.Command{
-		Name:      "list",
-		Usage:     "List transactions",
-		UsageText: "infinita list [--category <name>] [--limit <n>] [--offset <n>]",
-		Flags: []ucli.Flag{
-			&ucli.StringFlag{Name: "category"},
-			&ucli.IntFlag{Name: "limit", Value: valueobject.DefaultTransactionLimit},
-			&ucli.IntFlag{Name: "offset", Value: 0},
-		},
-		Action: func(ctx context.Context, cmd *ucli.Command) error {
-			result, err := a.txnUseCase.ListTransactions(ctx, optionalString(cmd.String("category")), cmd.Int("limit"), cmd.Int("offset"))
+func (a *App) listCommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "List transactions",
+		Long:  "List transactions",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			category, _ := cmd.Flags().GetString("category")
+			limit, _ := cmd.Flags().GetInt("limit")
+			offset, _ := cmd.Flags().GetInt("offset")
+
+			result, err := a.txnUseCase.ListTransactions(cmd.Context(), optionalString(category), limit, offset)
 			if err != nil {
 				return cliExitError(err, exitCode(err))
 			}
-			_, _ = fmt.Fprintln(cmd.Writer, "ID       Date       Type     Category  Amount    Description")
+			_, _ = fmt.Fprintln(a.stdout, "ID       Date       Type     Category  Amount    Description")
 			for _, txn := range result.Transactions {
 				shortID := txn.ID
 				if len(shortID) > 8 {
 					shortID = shortID[:8]
 				}
-				_, _ = fmt.Fprintf(cmd.Writer, "%-8s %-10s %-8s %-9s %-9d %s\n", shortID, txn.Date, txn.Type, txn.CategoryNameSnapshot, txn.AmountMinor, txn.Description)
+				_, _ = fmt.Fprintf(a.stdout, "%-8s %-10s %-8s %-9s %-9d %s\n", shortID, txn.Date, txn.Type, txn.CategoryNameSnapshot, txn.AmountMinor, txn.Description)
 			}
 			return nil
 		},
 	}
+
+	cmd.Flags().String("category", "", "Filter by category")
+	cmd.Flags().Int("limit", valueobject.DefaultTransactionLimit, "Maximum number of transactions to list")
+	cmd.Flags().Int("offset", 0, "Number of transactions to skip")
+
+	return cmd
 }
 
-func (a *App) categoryCommand() *ucli.Command {
-	return &ucli.Command{
-		Name:  "category",
-		Usage: "Manage categories",
-		Commands: []*ucli.Command{
-			{
-				Name:  "list",
-				Usage: "List categories",
-				Action: func(ctx context.Context, cmd *ucli.Command) error {
-					categories, err := a.categoryUseCase.List(ctx)
-					if err != nil {
-						return cliExitError(err, exitCode(err))
-					}
-					for _, category := range categories {
-						_, _ = fmt.Fprintf(cmd.Writer, "%s - %s\n", category.Name, category.Description)
-					}
-					return nil
-				},
-			},
-			{
-				Name:      "create",
-				Usage:     "Create a category",
-				UsageText: "infinita category create --name <name> [--description <text>]",
-				Flags: []ucli.Flag{
-					&ucli.StringFlag{Name: "name"},
-					&ucli.StringFlag{Name: "description"},
-				},
-				Action: func(ctx context.Context, cmd *ucli.Command) error {
-					name, err := requiredString(cmd, "name")
-					if err != nil {
-						return cliExitError(err, 2)
-					}
-					if _, err := a.categoryUseCase.Create(ctx, name, cmd.String("description")); err != nil {
-						return cliExitError(err, exitCode(err))
-					}
-					_, _ = fmt.Fprintln(cmd.Writer, "Category saved.")
-					return nil
-				},
-			},
+func (a *App) categoryCommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "category",
+		Short: "Manage categories",
+		Long:  "Manage categories",
+	}
+	cmd.SetHelpTemplate(helpTemplate)
+
+	listCmd := &cobra.Command{
+		Use:   "list",
+		Short: "List categories",
+		Long:  "List categories",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			categories, err := a.categoryUseCase.List(cmd.Context())
+			if err != nil {
+				return cliExitError(err, exitCode(err))
+			}
+			for _, category := range categories {
+				_, _ = fmt.Fprintf(a.stdout, "%s - %s\n", category.Name, category.Description)
+			}
+			return nil
 		},
 	}
-}
 
-func (a *App) budgetCommand() *ucli.Command {
-	return &ucli.Command{
-		Name:  "budget",
-		Usage: "Manage budgets",
-		Commands: []*ucli.Command{
-			{
-				Name:      "set",
-				Usage:     "Set monthly budget",
-				UsageText: "infinita budget set --category <name> --amount <decimal> --month <YYYY-MM>",
-				Flags: []ucli.Flag{
-					&ucli.StringFlag{Name: "category"},
-					&ucli.StringFlag{Name: "amount"},
-					&ucli.StringFlag{Name: "month"},
-				},
-				Action: func(ctx context.Context, cmd *ucli.Command) error {
-					category, err := requiredString(cmd, "category")
-					if err != nil {
-						return cliExitError(err, 2)
-					}
-					month, err := requiredString(cmd, "month")
-					if err != nil {
-						return cliExitError(err, 2)
-					}
-					amountText, err := requiredString(cmd, "amount")
-					if err != nil {
-						return cliExitError(err, 2)
-					}
-					amount, err := validation.ParseAmount(amountText, false)
-					if err != nil {
-						return cliExitError(err, 2)
-					}
-					if err := a.budgetUseCase.SetBudget(ctx, category, month, amount); err != nil {
-						return cliExitError(err, exitCode(err))
-					}
-					_, _ = fmt.Fprintln(cmd.Writer, "Budget stored.")
-					return nil
-				},
-			},
-			{
-				Name:      "status",
-				Usage:     "Show monthly budget status",
-				UsageText: "infinita budget status --month <YYYY-MM>",
-				Flags: []ucli.Flag{
-					&ucli.StringFlag{Name: "month"},
-				},
-				Action: func(ctx context.Context, cmd *ucli.Command) error {
-					month, err := requiredString(cmd, "month")
-					if err != nil {
-						return cliExitError(err, 2)
-					}
-					statuses, err := a.budgetUseCase.Status(ctx, month)
-					if err != nil {
-						return cliExitError(err, exitCode(err))
-					}
-					for _, status := range statuses {
-						_, _ = fmt.Fprintf(cmd.Writer, "%s: limit=%d, spent=%d, remaining=%d, over_limit=%t\n", status.CategoryName, status.MonthlyLimitMinor, status.SpentMonthToDateMinor, status.RemainingMinor, status.IsOverLimit)
-					}
-					return nil
-				},
-			},
+	createCmd := &cobra.Command{
+		Use:   "create",
+		Short: "Create a category",
+		Long:  "Create a category",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			name, err := requiredString(cmd, "name")
+			if err != nil {
+				return cliExitError(err, 2)
+			}
+			description, _ := cmd.Flags().GetString("description")
+			if _, err := a.categoryUseCase.Create(cmd.Context(), name, description); err != nil {
+				return cliExitError(err, exitCode(err))
+			}
+			_, _ = fmt.Fprintln(a.stdout, "Category saved.")
+			return nil
 		},
 	}
+	createCmd.Flags().String("name", "", "Category name")
+	createCmd.Flags().String("description", "", "Category description")
+
+	cmd.AddCommand(listCmd, createCmd)
+
+	return cmd
 }
 
-func (a *App) reportCommand() *ucli.Command {
-	return &ucli.Command{
-		Name:  "report",
-		Usage: "Render reports",
-		Commands: []*ucli.Command{
-			{
-				Name:      "daily",
-				Usage:     "Show daily report",
-				UsageText: "infinita report daily --date <YYYY-MM-DD>",
-				Flags: []ucli.Flag{
-					&ucli.StringFlag{Name: "date"},
-				},
-				Action: func(ctx context.Context, cmd *ucli.Command) error {
-					date, err := requiredString(cmd, "date")
-					if err != nil {
-						return cliExitError(err, 2)
-					}
-					summary, err := a.reportUseCase.Daily(ctx, date)
-					if err != nil {
-						return cliExitError(err, exitCode(err))
-					}
-					_, _ = fmt.Fprintf(cmd.Writer, "Daily report %s: income=%d expense=%d net=%d\n", summary.Period, summary.IncomeTotalMinor, summary.ExpenseTotalMinor, summary.NetBalanceMinor)
-					return nil
-				},
-			},
-			{
-				Name:      "monthly",
-				Usage:     "Show monthly report",
-				UsageText: "infinita report monthly --month <YYYY-MM>",
-				Flags: []ucli.Flag{
-					&ucli.StringFlag{Name: "month"},
-				},
-				Action: func(ctx context.Context, cmd *ucli.Command) error {
-					month, err := requiredString(cmd, "month")
-					if err != nil {
-						return cliExitError(err, 2)
-					}
-					summary, err := a.reportUseCase.Monthly(ctx, month)
-					if err != nil {
-						return cliExitError(err, exitCode(err))
-					}
-					_, _ = fmt.Fprintf(cmd.Writer, "Monthly report %s: income=%d expense=%d net=%d closing=%d\n", summary.Period, summary.IncomeTotalMinor, summary.ExpenseTotalMinor, summary.NetBalanceMinor, summary.ClosingBalanceMinor)
-					for _, category := range summary.TopCategories {
-						_, _ = fmt.Fprintf(cmd.Writer, " top: %s=%d\n", category.Category, category.AmountMinor)
-					}
-					return nil
-				},
-			},
+func (a *App) budgetCommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "budget",
+		Short: "Manage budgets",
+		Long:  "Manage budgets",
+	}
+	cmd.SetHelpTemplate(helpTemplate)
+
+	setCmd := &cobra.Command{
+		Use:   "set",
+		Short: "Set monthly budget",
+		Long:  "Set monthly budget",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			category, err := requiredString(cmd, "category")
+			if err != nil {
+				return cliExitError(err, 2)
+			}
+			month, err := requiredString(cmd, "month")
+			if err != nil {
+				return cliExitError(err, 2)
+			}
+			amountText, err := requiredString(cmd, "amount")
+			if err != nil {
+				return cliExitError(err, 2)
+			}
+			amount, err := validation.ParseAmount(amountText, false)
+			if err != nil {
+				return cliExitError(err, 2)
+			}
+			if err := a.budgetUseCase.SetBudget(cmd.Context(), category, month, amount); err != nil {
+				return cliExitError(err, exitCode(err))
+			}
+			_, _ = fmt.Fprintln(a.stdout, "Budget stored.")
+			return nil
 		},
 	}
-}
+	setCmd.Flags().String("category", "", "Category name")
+	setCmd.Flags().String("amount", "", "Budget amount")
+	setCmd.Flags().String("month", "", "Month (YYYY-MM)")
 
-func (a *App) settingsCommand() *ucli.Command {
-	return &ucli.Command{
-		Name:  "settings",
-		Usage: "Manage settings",
-		Commands: []*ucli.Command{
-			{
-				Name:  "show",
-				Usage: "Show current settings",
-				Action: func(ctx context.Context, cmd *ucli.Command) error {
-					settings, err := a.settingsUseCase.Show(ctx)
-					if err != nil {
-						return cliExitError(err, exitCode(err))
-					}
-					_, _ = fmt.Fprintf(cmd.Writer, "Config file:   %s\n", a.configPath)
-					_, _ = fmt.Fprintf(cmd.Writer, "Storage mode:  %s\n", settings.StorageMode)
-					_, _ = fmt.Fprintf(cmd.Writer, "Report timezone: %s\n", settings.ReportTimezone)
-					return nil
-				},
-			},
-			{
-				Name:      "set-initial-balance",
-				Usage:     "Set initial balance",
-				UsageText: "infinita settings set-initial-balance --amount <decimal>",
-				Flags: []ucli.Flag{
-					&ucli.StringFlag{Name: "amount"},
-				},
-				Action: func(ctx context.Context, cmd *ucli.Command) error {
-					amountText, err := requiredString(cmd, "amount")
-					if err != nil {
-						return cliExitError(err, 2)
-					}
-					amount, err := validation.ParseAmount(amountText, true)
-					if err != nil {
-						return cliExitError(err, 2)
-					}
-					if _, err := a.settingsUseCase.SetInitialBalance(ctx, amount); err != nil {
-						return cliExitError(err, exitCode(err))
-					}
-					_, _ = fmt.Fprintln(cmd.Writer, "Initial balance updated.")
-					return nil
-				},
-			},
-			{
-				Name:      "reset-initial-balance",
-				Usage:     "Reset initial balance to zero",
-				UsageText: "infinita settings reset-initial-balance",
-				Action: func(ctx context.Context, cmd *ucli.Command) error {
-					if err := a.settingsUseCase.ResetInitialBalance(ctx); err != nil {
-						return cliExitError(err, exitCode(err))
-					}
-					_, _ = fmt.Fprintln(cmd.Writer, "Initial balance reset.")
-					return nil
-				},
-			},
-			{
-				Name:      "report-timezone",
-				Usage:     "Update report timezone",
-				UsageText: "infinita settings report-timezone --timezone <IANA name>",
-				Flags: []ucli.Flag{
-					&ucli.StringFlag{Name: "timezone"},
-				},
-				Action: func(ctx context.Context, cmd *ucli.Command) error {
-					timezone, err := requiredString(cmd, "timezone")
-					if err != nil {
-						return cliExitError(err, 2)
-					}
-					if err := a.settingsUseCase.SetReportTimezone(ctx, timezone); err != nil {
-						return cliExitError(err, exitCode(err))
-					}
-					_, _ = fmt.Fprintln(cmd.Writer, "Report timezone updated.")
-					return nil
-				},
-			},
+	statusCmd := &cobra.Command{
+		Use:   "status",
+		Short: "Show monthly budget status",
+		Long:  "Show monthly budget status",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			month, err := requiredString(cmd, "month")
+			if err != nil {
+				return cliExitError(err, 2)
+			}
+			statuses, err := a.budgetUseCase.Status(cmd.Context(), month)
+			if err != nil {
+				return cliExitError(err, exitCode(err))
+			}
+			for _, status := range statuses {
+				_, _ = fmt.Fprintf(a.stdout, "%s: limit=%d, spent=%d, remaining=%d, over_limit=%t\n", status.CategoryName, status.MonthlyLimitMinor, status.SpentMonthToDateMinor, status.RemainingMinor, status.IsOverLimit)
+			}
+			return nil
 		},
 	}
+	statusCmd.Flags().String("month", "", "Month (YYYY-MM)")
+
+	cmd.AddCommand(setCmd, statusCmd)
+
+	return cmd
 }
 
-func requiredString(cmd *ucli.Command, name string) (string, error) {
-	value := cmd.String(name)
+func (a *App) reportCommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "report",
+		Short: "Render reports",
+		Long:  "Render reports",
+	}
+	cmd.SetHelpTemplate(helpTemplate)
+
+	dailyCmd := &cobra.Command{
+		Use:   "daily",
+		Short: "Show daily report",
+		Long:  "Show daily report",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			date, err := requiredString(cmd, "date")
+			if err != nil {
+				return cliExitError(err, 2)
+			}
+			summary, err := a.reportUseCase.Daily(cmd.Context(), date)
+			if err != nil {
+				return cliExitError(err, exitCode(err))
+			}
+			_, _ = fmt.Fprintf(a.stdout, "Daily report %s: income=%d expense=%d net=%d\n", summary.Period, summary.IncomeTotalMinor, summary.ExpenseTotalMinor, summary.NetBalanceMinor)
+			return nil
+		},
+	}
+	dailyCmd.Flags().String("date", "", "Date (YYYY-MM-DD)")
+
+	monthlyCmd := &cobra.Command{
+		Use:   "monthly",
+		Short: "Show monthly report",
+		Long:  "Show monthly report",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			month, err := requiredString(cmd, "month")
+			if err != nil {
+				return cliExitError(err, 2)
+			}
+			summary, err := a.reportUseCase.Monthly(cmd.Context(), month)
+			if err != nil {
+				return cliExitError(err, exitCode(err))
+			}
+			_, _ = fmt.Fprintf(a.stdout, "Monthly report %s: income=%d expense=%d net=%d closing=%d\n", summary.Period, summary.IncomeTotalMinor, summary.ExpenseTotalMinor, summary.NetBalanceMinor, summary.ClosingBalanceMinor)
+			for _, category := range summary.TopCategories {
+				_, _ = fmt.Fprintf(a.stdout, " top: %s=%d\n", category.Category, category.AmountMinor)
+			}
+			return nil
+		},
+	}
+	monthlyCmd.Flags().String("month", "", "Month (YYYY-MM)")
+
+	cmd.AddCommand(dailyCmd, monthlyCmd)
+
+	return cmd
+}
+
+func (a *App) settingsCommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "settings",
+		Short: "Manage settings",
+		Long:  "Manage settings",
+	}
+	cmd.SetHelpTemplate(helpTemplate)
+
+	showCmd := &cobra.Command{
+		Use:   "show",
+		Short: "Show current settings",
+		Long:  "Show current settings",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			settings, err := a.settingsUseCase.Show(cmd.Context())
+			if err != nil {
+				return cliExitError(err, exitCode(err))
+			}
+			_, _ = fmt.Fprintf(a.stdout, "Config file:   %s\n", a.configPath)
+			_, _ = fmt.Fprintf(a.stdout, "Storage mode:  %s\n", settings.StorageMode)
+			_, _ = fmt.Fprintf(a.stdout, "Report timezone: %s\n", settings.ReportTimezone)
+			return nil
+		},
+	}
+
+	setInitialBalanceCmd := &cobra.Command{
+		Use:   "set-initial-balance",
+		Short: "Set initial balance",
+		Long:  "Set initial balance",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			amountText, err := requiredString(cmd, "amount")
+			if err != nil {
+				return cliExitError(err, 2)
+			}
+			amount, err := validation.ParseAmount(amountText, true)
+			if err != nil {
+				return cliExitError(err, 2)
+			}
+			if _, err := a.settingsUseCase.SetInitialBalance(cmd.Context(), amount); err != nil {
+				return cliExitError(err, exitCode(err))
+			}
+			_, _ = fmt.Fprintln(a.stdout, "Initial balance updated.")
+			return nil
+		},
+	}
+	setInitialBalanceCmd.Flags().String("amount", "", "Amount")
+
+	resetInitialBalanceCmd := &cobra.Command{
+		Use:   "reset-initial-balance",
+		Short: "Reset initial balance to zero",
+		Long:  "Reset initial balance to zero",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := a.settingsUseCase.ResetInitialBalance(cmd.Context()); err != nil {
+				return cliExitError(err, exitCode(err))
+			}
+			_, _ = fmt.Fprintln(a.stdout, "Initial balance reset.")
+			return nil
+		},
+	}
+
+	reportTimezoneCmd := &cobra.Command{
+		Use:   "report-timezone",
+		Short: "Update report timezone",
+		Long:  "Update report timezone",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			timezone, err := requiredString(cmd, "timezone")
+			if err != nil {
+				return cliExitError(err, 2)
+			}
+			if err := a.settingsUseCase.SetReportTimezone(cmd.Context(), timezone); err != nil {
+				return cliExitError(err, exitCode(err))
+			}
+			_, _ = fmt.Fprintln(a.stdout, "Report timezone updated.")
+			return nil
+		},
+	}
+	reportTimezoneCmd.Flags().String("timezone", "", "IANA timezone name")
+
+	cmd.AddCommand(showCmd, setInitialBalanceCmd, resetInitialBalanceCmd, reportTimezoneCmd)
+
+	return cmd
+}
+
+func requiredString(cmd *cobra.Command, name string) (string, error) {
+	value, err := cmd.Flags().GetString(name)
+	if err != nil {
+		return "", err
+	}
 	if value == "" {
 		return "", domainerror.ErrInvalidFlag.WithField(name).WithHint("flag is required")
 	}
@@ -426,10 +478,13 @@ func cliExitError(err error, code int) error {
 	if err == nil {
 		return nil
 	}
-	return ucli.Exit(formatCLIError(err), code)
+	return domainerror.ExitError{
+		Err:  formatCLIError(err),
+		Code: code,
+	}
 }
 
-func formatCLIError(err error) string {
+func formatCLIError(err error) error {
 	var clientErr *transportclient.ClientError
 	if errors.As(err, &clientErr) {
 		domainErrors := clientErr.ToDomainErrors()
@@ -438,9 +493,9 @@ func formatCLIError(err error) string {
 			for i, domainErr := range domainErrors {
 				messages[i] = domainErr.Error()
 			}
-			return strings.Join(messages, "\n")
+			return errors.New(strings.Join(messages, "\n"))
 		}
 	}
 
-	return err.Error()
+	return err
 }

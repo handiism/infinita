@@ -97,7 +97,7 @@ func TestCLIValidationExitCode(t *testing.T) {
 
 	out, code := runCLI(t, bin, dataDir, "unknown")
 	require.Equal(t, 2, code)
-	require.Contains(t, out, "USAGE:")
+	require.Contains(t, out, "unknown command")
 
 	out, code = runCLI(t, bin, dataDir, "settings", "report-timezone", "--timezone", "Mars/Base")
 	require.Equal(t, 2, code)

@@ -24,12 +24,14 @@ type yamlSettings struct {
 
 // SettingsRepository implements output.SettingsRepository using a YAML file.
 type SettingsRepository struct {
-	filePath string
+	filePath      string
+	isDefaultPath bool
 }
 
-func NewSettingsRepository(filePath string) *SettingsRepository {
+func NewSettingsRepository(filePath string, isDefaultPath bool) *SettingsRepository {
 	return &SettingsRepository{
-		filePath: filePath,
+		filePath:      filePath,
+		isDefaultPath: isDefaultPath,
 	}
 }
 
@@ -65,8 +67,8 @@ func (r *SettingsRepository) SetReportTimezone(_ context.Context, timezone strin
 	return r.write(s)
 }
 
-// readOrCreate reads the settings file. If it does not exist, it writes
-// defaults to disk and returns them.
+// readOrCreate reads the settings file. If it does not exist and the path
+// is the default one, it writes defaults to disk and returns them.
 func (r *SettingsRepository) readOrCreate(_ context.Context) (yamlSettings, error) {
 	s, err := r.read()
 	if err == nil {
@@ -74,6 +76,9 @@ func (r *SettingsRepository) readOrCreate(_ context.Context) (yamlSettings, erro
 	}
 	if !os.IsNotExist(err) {
 		return yamlSettings{}, err
+	}
+	if !r.isDefaultPath {
+		return yamlSettings{}, fmt.Errorf("settings file not found: %s", r.filePath)
 	}
 	if writeErr := r.write(defaults); writeErr != nil {
 		return yamlSettings{}, fmt.Errorf("create default settings: %w", writeErr)

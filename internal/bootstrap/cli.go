@@ -2,10 +2,13 @@ package bootstrap
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
+	domainerror "github.com/handiism/infinita/internal/domain/error"
 	transportcli "github.com/handiism/infinita/internal/transport/cli"
 	transportclient "github.com/handiism/infinita/internal/transport/client"
 )
@@ -39,7 +42,12 @@ func RunCLI(ctx context.Context, args []string, stdout io.Writer, stderr io.Writ
 
 	go logServerErrors(ctx, b.Runtime, stderr)
 
-	return app.Command().Run(ctx, args)
+	rootCmd := app.Command()
+	rootCmd.SetOut(stdout)
+	rootCmd.SetErr(stderr)
+	rootCmd.SetArgs(args[1:]) // Skip program name
+
+	return rootCmd.Execute()
 }
 
 // startEmbeddedServer starts the embedded server and waits for it to be ready.
@@ -75,4 +83,18 @@ func logServerErrors(ctx context.Context, runtime *Runtime, stderr io.Writer) {
 		}
 	case <-ctx.Done():
 	}
+}
+
+// HandleExitError extracts the exit code from a domainerror.ExitError.
+// Returns 2 for domain/validation errors and unknown commands, 3 for runtime errors.
+func HandleExitError(err error) int {
+	var exitErr domainerror.ExitError
+	if errors.As(err, &exitErr) {
+		return exitErr.Code
+	}
+	// Cobra's built-in unknown command error
+	if err != nil && strings.Contains(err.Error(), "unknown command") {
+		return 2
+	}
+	return 3
 }

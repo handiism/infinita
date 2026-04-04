@@ -56,3 +56,20 @@ var (
 	ErrInvalidTimezone        = New("INVALID_TIMEZONE", "timezone must be a valid IANA region")
 	ErrInvalidConfig          = New("INVALID_CONFIG", "settings file contains invalid values")
 )
+
+// ExitError wraps an error with an exit code for CLI transport layers.
+type ExitError struct {
+	Err  error
+	Code int
+}
+
+func (e ExitError) Error() string {
+	if e.Err == nil {
+		return ""
+	}
+	return e.Err.Error()
+}
+
+func (e ExitError) Unwrap() error {
+	return e.Err
+}

@@ -97,6 +97,9 @@ func TestResolvePathsUsesConfigArgumentOverride(t *testing.T) {
 	if got.SettingsFile != "/tmp/override.yaml" {
 		t.Fatalf("ResolvePaths().SettingsFile = %q, want %q", got.SettingsFile, "/tmp/override.yaml")
 	}
+	if got.IsDefaultConfig {
+		t.Fatalf("ResolvePaths().IsDefaultConfig = true, want false (override was provided)")
+	}
 }
 
 func TestResolvePathsFromDataDirFallsBackToResolvedSettingsFile(t *testing.T) {
@@ -110,6 +113,9 @@ func TestResolvePathsFromDataDirFallsBackToResolvedSettingsFile(t *testing.T) {
 	}
 	if got.SettingsFile != want {
 		t.Fatalf("ResolvePathsFromDataDir().SettingsFile = %q, want %q", got.SettingsFile, want)
+	}
+	if !got.IsDefaultConfig {
+		t.Fatalf("ResolvePathsFromDataDir().IsDefaultConfig = false, want true")
 	}
 }
 
@@ -233,7 +239,7 @@ func TestEnforceLocalOnly(t *testing.T) {
 func TestNewRuntimeCreatesUsableServer(t *testing.T) {
 	dataDir := t.TempDir()
 	settingsFile := ResolveSettingsFile(dataDir)
-	runtime, err := NewRuntime(context.Background(), dataDir, settingsFile)
+	runtime, err := NewRuntime(context.Background(), dataDir, settingsFile, true)
 	if err != nil {
 		t.Fatalf("NewRuntime() error = %v", err)
 	}

@@ -7,11 +7,12 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/spf13/cobra"
+
 	"github.com/handiism/infinita/internal/application/port/input"
 	"github.com/handiism/infinita/internal/domain/entity"
 	domainerror "github.com/handiism/infinita/internal/domain/error"
 	transportclient "github.com/handiism/infinita/internal/transport/client"
-	ucli "github.com/urfave/cli/v3"
 )
 
 type stubTransactionUseCase struct {
@@ -126,12 +127,23 @@ func (s stubSettingsUseCase) SetReportTimezone(ctx context.Context, timezone str
 }
 
 func TestHelpers(t *testing.T) {
-	cmd := NewApp(nil, nil, nil, nil, nil, "settings.yaml", &bytes.Buffer{}, &bytes.Buffer{}).Command()
-	cmd.Root().Flags = nil
+	app := NewApp(nil, nil, nil, nil, nil, "settings.yaml", &bytes.Buffer{}, &bytes.Buffer{})
 
-	if _, err := requiredString(cmd, "missing"); err == nil {
+	// Create a minimal subcommand for testing requiredString
+	subCmd := &cobra.Command{
+		Use: "test",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			_, err := requiredString(cmd, "missing")
+			return err
+		},
+	}
+	subCmd.Flags().String("missing", "", "")
+
+	err := subCmd.RunE(subCmd, []string{})
+	if err == nil {
 		t.Fatal("requiredString() error = nil, want error")
 	}
+
 	if got := optionalString(""); got != nil {
 		t.Fatalf("optionalString(empty) = %v, want nil", got)
 	}
@@ -148,6 +160,9 @@ func TestHelpers(t *testing.T) {
 	if cliExitError(nil, 2) != nil {
 		t.Fatal("cliExitError(nil) should return nil")
 	}
+
+	// Suppress unused variable warnings
+	_ = app
 }
 
 func TestFormatCLIErrorExpandsMultipleClientErrors(t *testing.T) {
@@ -159,16 +174,16 @@ func TestFormatCLIErrorExpandsMultipleClientErrors(t *testing.T) {
 		StatusCode: 400,
 	}
 
-	got := formatCLIError(err)
+	formatted := formatCLIError(err).Error()
 
-	if !strings.Contains(got, "INVALID_TYPE: type must be either 'income' or 'expense' (field=type)") {
-		t.Fatalf("formatCLIError() missing first error: %q", got)
+	if !strings.Contains(formatted, "INVALID_TYPE: type must be either 'income' or 'expense' (field=type)") {
+		t.Fatalf("formatCLIError() missing first error: %q", formatted)
 	}
-	if !strings.Contains(got, "INVALID_DATE: date must be a valid YYYY-MM-DD value (field=date)") {
-		t.Fatalf("formatCLIError() missing second error: %q", got)
+	if !strings.Contains(formatted, "INVALID_DATE: date must be a valid YYYY-MM-DD value (field=date)") {
+		t.Fatalf("formatCLIError() missing second error: %q", formatted)
 	}
-	if strings.Contains(got, "and 1 more errors") {
-		t.Fatalf("formatCLIError() collapsed multiple errors: %q", got)
+	if strings.Contains(formatted, "and 1 more errors") {
+		t.Fatalf("formatCLIError() collapsed multiple errors: %q", formatted)
 	}
 }
 
@@ -288,20 +303,21 @@ func TestCategoryBudgetReportAndSettingsCommands(t *testing.T) {
 	)
 
 	commands := []struct {
-		command     *ucli.Command
+		command     *cobra.Command
+		parentName  string
 		args        []string
 		wantContain string
 	}{
-		{command: app.categoryCommand().Commands[0], args: []string{"list"}, wantContain: "Food - Meals"},
-		{command: app.categoryCommand().Commands[1], args: []string{"create", "--name", "Travel", "--description", "Trips"}, wantContain: "Category saved."},
-		{command: app.budgetCommand().Commands[0], args: []string{"set", "--category", "Food", "--amount", "400.00", "--month", "2024-01"}, wantContain: "Budget stored."},
-		{command: app.budgetCommand().Commands[1], args: []string{"status", "--month", "2024-01"}, wantContain: "Food: limit=40000, spent=12345, remaining=27655, over_limit=false"},
-		{command: app.reportCommand().Commands[0], args: []string{"daily", "--date", "2024-01-15"}, wantContain: "Daily report 2024-01-15: income=50000 expense=12345 net=37655"},
-		{command: app.reportCommand().Commands[1], args: []string{"monthly", "--month", "2024-01"}, wantContain: "Monthly report 2024-01: income=100000 expense=12345 net=87655 closing=120000"},
-		{command: app.settingsCommand().Commands[0], args: []string{"show"}, wantContain: "Storage mode:  local"},
-		{command: app.settingsCommand().Commands[1], args: []string{"set-initial-balance", "--amount", "500.00"}, wantContain: "Initial balance updated."},
-		{command: app.settingsCommand().Commands[2], args: []string{"reset-initial-balance"}, wantContain: "Initial balance reset."},
-		{command: app.settingsCommand().Commands[3], args: []string{"report-timezone", "--timezone", "UTC"}, wantContain: "Report timezone updated."},
+		{command: app.categoryCommand().Commands()[0], parentName: "category", args: []string{"category", "list"}, wantContain: "Food - Meals"},
+		{command: app.categoryCommand().Commands()[1], parentName: "category", args: []string{"category", "create", "--name", "Travel", "--description", "Trips"}, wantContain: "Category saved."},
+		{command: app.budgetCommand().Commands()[0], parentName: "budget", args: []string{"budget", "set", "--category", "Food", "--amount", "400.00", "--month", "2024-01"}, wantContain: "Budget stored."},
+		{command: app.budgetCommand().Commands()[1], parentName: "budget", args: []string{"budget", "status", "--month", "2024-01"}, wantContain: "Food: limit=40000, spent=12345, remaining=27655, over_limit=false"},
+		{command: app.reportCommand().Commands()[0], parentName: "report", args: []string{"report", "daily", "--date", "2024-01-15"}, wantContain: "Daily report 2024-01-15: income=50000 expense=12345 net=37655"},
+		{command: app.reportCommand().Commands()[1], parentName: "report", args: []string{"report", "monthly", "--month", "2024-01"}, wantContain: "Monthly report 2024-01: income=100000 expense=12345 net=87655 closing=120000"},
+		{command: app.settingsCommand().Commands()[0], parentName: "settings", args: []string{"settings", "show"}, wantContain: "Storage mode:  local"},
+		{command: app.settingsCommand().Commands()[1], parentName: "settings", args: []string{"settings", "set-initial-balance", "--amount", "500.00"}, wantContain: "Initial balance updated."},
+		{command: app.settingsCommand().Commands()[2], parentName: "settings", args: []string{"settings", "reset-initial-balance"}, wantContain: "Initial balance reset."},
+		{command: app.settingsCommand().Commands()[3], parentName: "settings", args: []string{"settings", "report-timezone", "--timezone", "UTC"}, wantContain: "Report timezone updated."},
 	}
 
 	for _, tc := range commands {
@@ -322,8 +338,37 @@ func newTestApp(txn stubTransactionUseCase, category stubCategoryUseCase, budget
 	return NewApp(txn, category, budget, report, settings, "settings.yaml", stdout, stderr), stdout, stderr
 }
 
-func runTestCommand(cmd *ucli.Command, stdout, stderr *bytes.Buffer, args []string) error {
-	cmd.Writer = stdout
-	cmd.ErrWriter = stderr
-	return cmd.Run(context.Background(), args)
+func runTestCommand(cmd *cobra.Command, stdout, stderr *bytes.Buffer, args []string) error {
+	cmd.SetOut(stdout)
+	cmd.SetErr(stderr)
+
+	// If the command has a parent (is a subcommand), we need to run it through the root
+	// by setting up the proper command chain
+	if cmd.Parent() != nil {
+		// Build the command chain from root to this subcommand
+		var chain []*cobra.Command
+		current := cmd
+		for current != nil {
+			chain = append([]*cobra.Command{current}, chain...)
+			current = current.Parent()
+		}
+
+		// The first command in the chain should be the root
+		rootCmd := chain[0]
+		rootCmd.SetOut(stdout)
+		rootCmd.SetErr(stderr)
+
+		// Extract just the subcommand args (skip the root command name)
+		subcommandArgs := args
+		if len(args) > 0 && args[0] == rootCmd.Name() {
+			subcommandArgs = args[1:]
+		}
+
+		rootCmd.SetArgs(subcommandArgs)
+		return rootCmd.Execute()
+	}
+
+	// For root-level commands, just execute with the given args
+	cmd.SetArgs(args)
+	return cmd.Execute()
 }
