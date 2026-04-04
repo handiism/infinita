@@ -113,6 +113,85 @@ func TestResolvePathsFromDataDirFallsBackToResolvedSettingsFile(t *testing.T) {
 	}
 }
 
+func TestParseConfigArg(t *testing.T) {
+	tests := []struct {
+		name   string
+		args   []string
+		want   string
+		wantOK bool
+	}{
+		{
+			name:   "no config arg",
+			args:   []string{"infinita", "list"},
+			want:   "",
+			wantOK: false,
+		},
+		{
+			name:   "config with separate value",
+			args:   []string{"infinita", "--config", "/path/to/config.yaml", "list"},
+			want:   "/path/to/config.yaml",
+			wantOK: true,
+		},
+		{
+			name:   "config with equals syntax",
+			args:   []string{"infinita", "--config=/path/to/config.yaml", "list"},
+			want:   "/path/to/config.yaml",
+			wantOK: true,
+		},
+		{
+			name:   "config at end",
+			args:   []string{"infinita", "list", "--config=/final.yaml"},
+			want:   "/final.yaml",
+			wantOK: true,
+		},
+		{
+			name:   "config without value",
+			args:   []string{"infinita", "--config"},
+			want:   "",
+			wantOK: false,
+		},
+		{
+			name:   "config equals without value",
+			args:   []string{"infinita", "--config="},
+			want:   "",
+			wantOK: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, ok := parseConfigArg(tt.args)
+			if got != tt.want {
+				t.Errorf("parseConfigArg() got = %q, want %q", got, tt.want)
+			}
+			if ok != tt.wantOK {
+				t.Errorf("parseConfigArg() ok = %v, want %v", ok, tt.wantOK)
+			}
+		})
+	}
+}
+
+func TestBootstrapClose_NilReceiver(t *testing.T) {
+	var b *Bootstrap
+	if err := b.Close(); err != nil {
+		t.Errorf("Bootstrap.Close() on nil Bootstrap = %v, want nil", err)
+	}
+}
+
+func TestBootstrapClose_NilRuntime(t *testing.T) {
+	b := &Bootstrap{Runtime: nil}
+	if err := b.Close(); err != nil {
+		t.Errorf("Bootstrap.Close() on nil Runtime = %v, want nil", err)
+	}
+}
+
+func TestRuntimeClose_NilCloser(t *testing.T) {
+	r := &Runtime{closer: nil}
+	if err := r.Close(); err != nil {
+		t.Errorf("Runtime.Close() on nil closer = %v, want nil", err)
+	}
+}
+
 func TestEnforceLocalOnly(t *testing.T) {
 	tests := []struct {
 		name    string

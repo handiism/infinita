@@ -10,48 +10,39 @@ import (
 	transportclient "github.com/handiism/infinita/internal/transport/client"
 )
 
+// RunCLI starts the embedded server and runs the CLI client.
 func RunCLI(ctx context.Context, args []string, stdout io.Writer, stderr io.Writer) error {
-	paths, err := ResolvePaths(args)
+	b, err := NewBootstrap(ctx, args)
 	if err != nil {
-		return fmt.Errorf("determine runtime paths: %w", err)
-	}
-
-	runtime, err := NewRuntime(ctx, paths.DataDir, paths.SettingsFile)
-	if err != nil {
-		return fmt.Errorf("initialize runtime: %w", err)
+		return err
 	}
 	defer func() {
-		if closeErr := runtime.Close(); closeErr != nil {
+		if closeErr := b.Close(); closeErr != nil {
 			_, _ = fmt.Fprintln(stderr, "database close error:", closeErr)
 		}
 	}()
 
-	baseURL, err := startEmbeddedServer(ctx, runtime)
+	baseURL, err := startEmbeddedServer(ctx, b.Runtime)
 	if err != nil {
 		return err
 	}
 
-	defer func() {
-		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), serverLifecycleTimeout*time.Second)
-		defer shutdownCancel()
-		if shutdownErr := runtime.Server.Shutdown(shutdownCtx); shutdownErr != nil {
-			_, _ = fmt.Fprintln(stderr, "server shutdown error:", shutdownErr)
-		}
-	}()
+	defer shutdownServer(ctx, b.Runtime.Server, stderr)
 
 	client := transportclient.New(baseURL)
 	app := transportcli.NewApp(
 		client, client, client, client, client,
-		paths.SettingsFile,
+		b.Paths.SettingsFile,
 		stdout,
 		stderr,
 	)
 
-	go logServerErrors(ctx, runtime, stderr)
+	go logServerErrors(ctx, b.Runtime, stderr)
 
 	return app.Command().Run(ctx, args)
 }
 
+// startEmbeddedServer starts the embedded server and waits for it to be ready.
 func startEmbeddedServer(ctx context.Context, runtime *Runtime) (string, error) {
 	portCh, err := runtime.Server.Start(ctx)
 	if err != nil {
@@ -66,7 +57,7 @@ func startEmbeddedServer(ctx context.Context, runtime *Runtime) (string, error) 
 	}
 
 	baseURL := fmt.Sprintf("http://127.0.0.1:%d", port)
-	readyCtx, readyCancel := context.WithTimeout(ctx, serverLifecycleTimeout*time.Second)
+	readyCtx, readyCancel := context.WithTimeout(ctx, serverGracePeriod*time.Second)
 	defer readyCancel()
 	if err := runtime.Server.WaitForReady(readyCtx, baseURL); err != nil {
 		return "", fmt.Errorf("server readiness check failed: %w", err)
@@ -75,6 +66,7 @@ func startEmbeddedServer(ctx context.Context, runtime *Runtime) (string, error) 
 	return baseURL, nil
 }
 
+// logServerErrors logs server errors to stderr until the context is cancelled.
 func logServerErrors(ctx context.Context, runtime *Runtime, stderr io.Writer) {
 	select {
 	case serverErr := <-runtime.Server.Err():

@@ -5,21 +5,16 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"time"
 )
 
+// RunServer starts the server on a dynamically chosen port and blocks until context cancellation.
 func RunServer(ctx context.Context, stdout io.Writer, stderr io.Writer) error {
-	paths, err := ResolvePaths(nil)
+	b, err := NewBootstrap(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("determine runtime paths: %w", err)
-	}
-
-	runtime, err := NewRuntime(ctx, paths.DataDir, paths.SettingsFile)
-	if err != nil {
-		return fmt.Errorf("runtime: %w", err)
+		return err
 	}
 	defer func() {
-		if closeErr := runtime.Close(); closeErr != nil {
+		if closeErr := b.Close(); closeErr != nil {
 			_, _ = fmt.Fprintln(stderr, "database close error:", closeErr)
 		}
 	}()
@@ -30,22 +25,19 @@ func RunServer(ctx context.Context, stdout io.Writer, stderr io.Writer) error {
 	}
 	_, _ = fmt.Fprintf(stdout, "Starting server on http://%s\n", ln.Addr().String())
 
-	if _, err := runtime.Server.StartOnListener(ctx, ln); err != nil {
+	if _, err := b.Runtime.Server.StartOnListener(ctx, ln); err != nil {
 		_ = ln.Close()
 		return fmt.Errorf("server start error: %w", err)
 	}
 
 	select {
 	case <-ctx.Done():
-	case err := <-runtime.Server.Err():
+	case err := <-b.Runtime.Server.Err():
 		return fmt.Errorf("server error: %w", err)
 	}
 
 	_, _ = fmt.Fprintln(stdout, "Shutting down server...")
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), serverLifecycleTimeout*time.Second)
-	defer shutdownCancel()
-
-	if err := runtime.Server.Shutdown(shutdownCtx); err != nil {
+	if err := b.Runtime.Server.Shutdown(context.Background()); err != nil {
 		return fmt.Errorf("server shutdown error: %w", err)
 	}
 
