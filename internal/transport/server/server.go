@@ -20,21 +20,45 @@ type Server struct {
 	startErr   error
 }
 
-// New creates a new Server with the given use cases.
+// New creates a new Server with the given use cases and optional API key.
 func New(
 	transactions input.TransactionUseCase,
 	categories input.CategoryUseCase,
 	budgets input.BudgetUseCase,
 	reports input.ReportUseCase,
 	settings input.SettingsUseCase,
+	apiKey string,
 ) *Server {
 	handler := NewHandler(transactions, categories, budgets, reports, settings)
-	mux := NewRouter(handler)
+
+	// Create two muxes: one for health (no auth), one for everything else (with auth)
+	healthMux := NewHealthRouter(handler)
+	apiMux := NewAPIRouter(handler)
+
+	// Create top-level handler that routes /health to public mux, everything else to auth-wrapped mux
+	var topHandler http.Handler
+	if apiKey != "" {
+		topHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path == "/health" {
+				healthMux.ServeHTTP(w, r)
+			} else {
+				APIKeyMiddleware(apiKey, apiMux).ServeHTTP(w, r)
+			}
+		})
+	} else {
+		topHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path == "/health" {
+				healthMux.ServeHTTP(w, r)
+			} else {
+				apiMux.ServeHTTP(w, r)
+			}
+		})
+	}
 
 	return &Server{
 		errCh: make(chan error, 1),
 		httpServer: &http.Server{
-			Handler: mux,
+			Handler: topHandler,
 		},
 	}
 }

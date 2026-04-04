@@ -2,7 +2,6 @@ package bootstrap
 
 import (
 	"context"
-	"errors"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -12,26 +11,6 @@ import (
 
 	"github.com/handiism/infinita/internal/domain/entity"
 )
-
-type stubSettingsRepo struct {
-	settings entity.Settings
-	err      error
-}
-
-func (s stubSettingsRepo) GetSettings(context.Context) (entity.Settings, error) {
-	if s.err != nil {
-		return entity.Settings{}, s.err
-	}
-	return s.settings, nil
-}
-
-func (stubSettingsRepo) SetStorageMode(context.Context, string) error {
-	return nil
-}
-
-func (stubSettingsRepo) SetReportTimezone(context.Context, string) error {
-	return nil
-}
 
 func TestResolveDataDirUsesEnvironmentOverride(t *testing.T) {
 	t.Setenv(envDataDir, "/tmp/infinita-bootstrap-test")
@@ -198,39 +177,53 @@ func TestRuntimeClose_NilCloser(t *testing.T) {
 	}
 }
 
-func TestEnforceLocalOnly(t *testing.T) {
+func TestValidateStorageMode(t *testing.T) {
 	tests := []struct {
-		name    string
-		repo    stubSettingsRepo
-		wantErr string
+		name     string
+		settings entity.Settings
+		wantErr  string
 	}{
 		{
-			name: "local mode allowed",
-			repo: stubSettingsRepo{settings: entity.Settings{StorageMode: "local"}},
+			name:     "local mode allowed",
+			settings: entity.Settings{Mode: "local"},
 		},
 		{
-			name:    "repository error",
-			repo:    stubSettingsRepo{err: errors.New("boom")},
-			wantErr: "boom",
+			name:     "non local/remote rejected",
+			settings: entity.Settings{Mode: "invalid"},
+			wantErr:  "MODE_UNAVAILABLE",
 		},
 		{
-			name:    "non local rejected",
-			repo:    stubSettingsRepo{settings: entity.Settings{StorageMode: "remote"}},
-			wantErr: "STORAGE_MODE_UNAVAILABLE",
+			name:     "remote with server_url and api_key allowed",
+			settings: entity.Settings{Mode: "remote", ServerURL: "http://localhost:8080", APIKey: "secret"},
+		},
+		{
+			name:     "remote without server_url rejected",
+			settings: entity.Settings{Mode: "remote", ServerURL: "", APIKey: "secret"},
+			wantErr:  "INVALID_CONFIG",
+		},
+		{
+			name:     "remote without api_key rejected",
+			settings: entity.Settings{Mode: "remote", ServerURL: "http://localhost:8080", APIKey: ""},
+			wantErr:  "MISSING_API_KEY",
+		},
+		{
+			name:     "remote without server_url and api_key rejected",
+			settings: entity.Settings{Mode: "remote", ServerURL: "", APIKey: ""},
+			wantErr:  "INVALID_CONFIG",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := enforceLocalOnly(context.Background(), tt.repo)
+			err := validateStorageMode(tt.settings)
 			if tt.wantErr == "" {
 				if err != nil {
-					t.Fatalf("enforceLocalOnly() error = %v", err)
+					t.Fatalf("validateStorageMode() error = %v", err)
 				}
 				return
 			}
 			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
-				t.Fatalf("enforceLocalOnly() error = %v, want substring %q", err, tt.wantErr)
+				t.Fatalf("validateStorageMode() error = %v, want substring %q", err, tt.wantErr)
 			}
 		})
 	}

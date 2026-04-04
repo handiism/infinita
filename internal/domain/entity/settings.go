@@ -2,6 +2,8 @@ package entity
 
 // Settings holds application configuration.
 type Settings struct {
-	StorageMode    string
+	Mode           string
+	ServerURL      string
 	ReportTimezone string
+	APIKey         string
 }

@@ -336,19 +336,6 @@ func (h *Handler) GetMonthlyReport(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (h *Handler) GetSettings(w http.ResponseWriter, r *http.Request) {
-	settings, err := h.Settings.Show(r.Context())
-	if err != nil {
-		_ = WriteError(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
-		return
-	}
-
-	_ = WriteSuccess(w, http.StatusOK, SettingsResponse{
-		StorageMode:    settings.StorageMode,
-		ReportTimezone: settings.ReportTimezone,
-	})
-}
-
 func (h *Handler) SetInitialBalance(w http.ResponseWriter, r *http.Request) {
 	var req SetInitialBalanceRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -359,12 +346,6 @@ func (h *Handler) SetInitialBalance(w http.ResponseWriter, r *http.Request) {
 	if req.InitialBalanceMinor < 0 {
 		_ = WriteFail(w, http.StatusBadRequest, []domainerror.DomainError{
 			domainerror.ErrInvalidAmount.WithField("initialBalanceMinor").WithHint("provide a non-negative numeric value"),
-		})
-		return
-	}
-	if req.CurrencyCode != mvpCurrencyCode {
-		_ = WriteFail(w, http.StatusBadRequest, []domainerror.DomainError{
-			domainerror.ErrInvalidCurrency.WithField("currencyCode"),
 		})
 		return
 	}
@@ -388,32 +369,6 @@ func (h *Handler) SetInitialBalance(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) ResetInitialBalance(w http.ResponseWriter, r *http.Request) {
 	err := h.Settings.ResetInitialBalance(r.Context())
 	if err != nil {
-		_ = WriteError(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
-		return
-	}
-
-	_ = WriteSuccess(w, http.StatusOK, nil)
-}
-
-func (h *Handler) SetReportTimezone(w http.ResponseWriter, r *http.Request) {
-	var req SetReportTimezoneRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		_ = WriteError(w, http.StatusBadRequest, "INVALID_REQUEST", "failed to parse request body")
-		return
-	}
-
-	if req.ReportTimezone == "" {
-		_ = WriteFail(w, http.StatusBadRequest, []domainerror.DomainError{
-			domainerror.ErrInvalidTimezone.WithField("reportTimezone"),
-		})
-		return
-	}
-
-	err := h.Settings.SetReportTimezone(r.Context(), req.ReportTimezone)
-	if err != nil {
-		if WriteFailFromError(w, http.StatusBadRequest, err) {
-			return
-		}
 		_ = WriteError(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}

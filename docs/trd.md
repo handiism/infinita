@@ -6,7 +6,7 @@
 - Owner: TBD
 - Reviewers: TBD
 - Status: Draft
-- Version: 0.21
+- Version: 0.23
 - Created date: 2026-03-28
 - Last updated date: 2026-03-29
 - Related PRD: `docs/prd.md`
@@ -27,7 +27,7 @@ Related API Spec: `docs/api/openapi.yaml`
 - Maintain clear English command help, outputs, and errors with consistent terminology.
 - Guarantee calculation accuracy for budgets and summaries through automated tests.
 - Support optional initial balance as starting point for balance summaries.
-- Keep storage behavior explicit in CLI settings with local mode fixed for MVP.
+- Keep storage behavior explicit in CLI settings with local and remote modes for MVP.
 - Embed an HTTP server within the CLI process for clean transport separation (ADR-005).
 - Ensure CLI-server communication uses localhost HTTP with JSend-style response format.
 
@@ -50,7 +50,7 @@ Related API Spec: `docs/api/openapi.yaml`
 - Investment/tax/bookkeeping advanced features.
 - AI insights.
 - Transaction edit/delete flows for MVP.
-- Remote server deployment or TLS/mutual authentication for MVP.
+
 - External API exposure beyond localhost for MVP.
 
 ## Requirements Mapping
@@ -201,11 +201,11 @@ Notes:
 - `TRD-CLI-003`: The system must provide commands to list transactions and filter by category.
 - `TRD-CLI-004`: The system must provide commands to set monthly budget per category and show remaining budget and over-limit status.
 - `TRD-CLI-005`: The system must provide commands to render daily summaries with income, expense, and net balance, and monthly summaries with income, expense, net balance, closing balance, and top spending categories.
-- `TRD-CLI-006`: The system must provide settings commands to show active storage mode as `local` for MVP.
-- `TRD-CLI-007`: The system must provide setup/settings commands to set and reset optional initial balance; if omitted, initial balance defaults to `0`.
+- `TRD-CLI-006`: (Removed) Settings show command was removed in recent refactoring.
+- `TRD-CLI-007`: (Removed) Initial balance CLI commands were removed in recent refactoring. Initial balance can still be set via API at `/initial-balance`.
 - `TRD-CLI-008`: Transaction listing command must support pagination via `limit` and `offset`, with defaults `limit=50`, `offset=0`, and maximum `limit=500`.
-- `TRD-CLI-009`: CLI process exit codes must be stable: `0` for success, `2` for validation/domain input errors, and `3` for runtime/storage errors.
-- `TRD-CLI-010`: MVP command surface must expose canonical initial-balance management commands under settings: `settings set-initial-balance` to set the value explicitly and `settings reset-initial-balance` to reset the persisted value to `0`.
+- `TRD-CLI-009`: CLI process exit codes must be stable: `0` for success, `2` for validation/domain input errors, and `3` for runtime/storage error.
+- `TRD-CLI-010`: (Removed) Initial balance CLI commands under settings were removed in recent refactoring.
 - `TRD-CLI-011`: CLI must use an HTTP client (`internal/transport/client`) to communicate with the embedded server. All commands must serialize input to JSON, make HTTP requests to localhost, and deserialize responses before rendering output.
 - `TRD-CLI-012`: CLI must map HTTP response status codes to exit codes: HTTP 2xx → exit 0, HTTP 4xx → exit 2, HTTP 5xx → exit 3. Validation errors in JSend `fail` response must be formatted for terminal output.
 - `TRD-UX-001`: All help text, success output, and validation/runtime errors must be in English and use a single approved terminology glossary.
@@ -214,12 +214,12 @@ Notes:
 - `TRD-DOM-001`: Budget computation must calculate remaining amount per category as `monthlyLimitMinor - spentMonthToDateMinor` and mark over-limit when `remainingMinor < 0`.
 - `TRD-DOM-002`: Summary computation must aggregate totals by date bucket (day/month). Category aggregation and deterministic ordering rules for top spending categories apply to monthly summaries, with ordering defined as `amountMinor DESC`, then normalized category key (case-insensitive category name) `ASC` as tie-breaker.
 - `TRD-DOM-003`: Report totals must be bucket-scoped for the requested `daily|monthly` period: `incomeTotalMinor` and `expenseTotalMinor` include only transactions inside that single bucket; `netBalanceMinor` must equal `incomeTotalMinor - expenseTotalMinor` for the same bucket.
-- `TRD-DOM-004`: Daily and monthly bucket boundaries must use `reportTimezone` from settings; MVP defaults the timezone to `Asia/Jakarta` via a YAML settings file (`settings.yaml`), and it can be changed only via explicit settings command.
+- `TRD-DOM-004`: Daily and monthly bucket boundaries must use `reportTimezone` from settings; MVP defaults the timezone to `Asia/Jakarta` via a YAML settings file (`settings.yaml`). The timezone can be changed by editing the `reportTimezone` field in `settings.yaml` directly.
 - `TRD-DOM-005`: Closing balance at period end must be cumulative and use `initialBalanceMinor + cumulativeIncomeToPeriodEndMinor - cumulativeExpenseToPeriodEndMinor`, where cumulative values are from app start through the end of the requested monthly period bucket.
 
 ### Validation
 - `TRD-VAL-001`: Transaction validation must reject requests where `amount <= 0`, invalid decimal token format, more than 2 fractional digits, invalid `type`, invalid date format, or unknown category, and must return a structured English error message. Valid inputs must be converted to integer minor units (`amountMinor`) with exact conversion and no implicit rounding.
-- `TRD-VAL-002`: Validation and domain errors must follow `{code, message, field?, hint?}` with stable error codes including `INVALID_AMOUNT`, `INVALID_DATE`, `UNKNOWN_CATEGORY`, `INVALID_TYPE`, and `STORAGE_MODE_UNAVAILABLE`.
+- `TRD-VAL-002`: Validation and domain errors must follow `{code, message, field?, hint?}` with stable error codes including `INVALID_AMOUNT`, `INVALID_DATE`, `UNKNOWN_CATEGORY`, `INVALID_TYPE`, `MODE_UNAVAILABLE`, and `MISSING_API_KEY`.
 - `TRD-VAL-003`: All monetary CLI inputs (`add --amount`, `budget set --amount`, `settings set-initial-balance --amount`) must use the same decimal-token validation and exact normalization rules to minor units; implicit rounding is forbidden.
 
 ### Data
@@ -233,13 +233,13 @@ Notes:
 - `TRD-API-001`: Transaction query contract must support category filter, pagination (`limit`, `offset`), and stable sort by date (desc), then creation timestamp (desc).
 - `TRD-API-002`: Budget query contract must return `category`, `currencyCode`, `monthlyLimitMinor`, `spentMonthToDateMinor`, `remainingMinor`, and `isOverLimit`.
 - `TRD-API-003`: Report query contract must return `{period, currencyCode, incomeTotalMinor, expenseTotalMinor, netBalanceMinor}` for daily mode, and must additionally return `{closingBalanceMinor, topCategories[]}` for monthly mode.
-- `TRD-API-004`: Settings contract is local CLI-side (non-cloud HTTP) and must return `{storageMode, reportTimezone}` with idempotent update operations.
+- `TRD-API-004`: Settings contract is local CLI-side (non-cloud HTTP) and must return `{mode, serverUrl, apiKey, reportTimezone}` with idempotent update operations.
 - `TRD-API-005`: Initialization contract must return `{initialBalanceMinor, currencyCode, initializedAt}` and support explicit set/reset by user command. In MVP, reset semantics mean persisting `initialBalanceMinor = 0` rather than deleting the initialization record.
 
 ### Infrastructure
 - `TRD-INF-001`: Application configuration must define local data directory path and default to a per-user application data location.
 - `TRD-INF-002`: The system must initialize default categories during first-run bootstrap idempotently.
-- `TRD-INF-003`: MVP runtime configuration must enforce local-only persistence and reject non-local storage mode activation.
+- `TRD-INF-003`: MVP runtime configuration must accept 'local' or 'remote' storage modes. For 'remote' mode, server_url must be provided and non-empty.
 - `TRD-INF-004`: Local persistence engine for MVP must use SQLite with foreign-key enforcement enabled and database file stored under per-user application data directory. Schema migration must use golang-migrate with migrations embedded in the CLI binary. See TRD-TECH-006.
 - `TRD-INF-005`: sqlc-generated code must be committed to version control. The CI pipeline must verify that committed generated code matches `sqlc generate` output to detect stale generated code.
 - `TRD-INF-006`: sqlc configuration (`sqlc.yaml`) must enable `emit_interface` (generates `Querier` interface for testability), `emit_pointers_for_null_types` (cleaner domain type mapping), `emit_empty_slices` (consistent slice returns for empty results), and `omit_unused_structs` (reduce generated code bloat). sqlc schema input must reference the same migration files used by golang-migrate.
@@ -260,6 +260,7 @@ Notes:
 ### Security
 - `TRD-SEC-001`: Data files or database artifacts must be created with user-only read/write permissions where supported by OS.
 - `TRD-SEC-002`: The project must document local data handling rules, including data path, permission model, backup guidance, and manual deletion steps. See [`docs/security/local-data.md`](../security/local-data.md).
+- `TRD-SEC-003`: API key authentication is required for remote mode. The server validates `X-API-Key` header on all endpoints except `/health` when api_key is configured in settings. The API key must be stored securely and never logged or exposed in responses.
 
 ## Non-Functional Requirements
 - `TRD-NFR-001` (Performance): For familiar users, transaction entry flow (command issue to success response) must complete within 15 seconds in benchmark profile `MVP-CLI-BENCH-01`.
@@ -267,11 +268,15 @@ Notes:
 - `TRD-NFR-003` (Scalability): Listing and reporting must remain functionally correct for datasets up to 100,000 local transactions.
 - `TRD-OBS-001` (Observability): No telemetry events are emitted by the application.
 - `TRD-NFR-004` (Compliance/Privacy): All user data remains local on the device with no remote transmission.
-- `TRD-NFR-005` (Mode Transparency): CLI settings output must always show active storage mode as `local` in MVP.
+- `TRD-NFR-005` (Mode Transparency): CLI settings output must always show active storage mode as `local` or `remote` in MVP, with server URL displayed for remote mode.
 
 ## API / Data Contracts
 
 ### CLI Command Surface (MVP Canonical)
+Global flags:
+- `infinita --mode <local|remote> --server-url <url> --api-key <key> ...`
+
+Commands:
 - `infinita add --type <income|expense> --amount <decimal> --category <name> --date <YYYY-MM-DD> [--description <text>]`
 - `infinita list [--category <name>] [--limit <n>] [--offset <n>]`
 - `infinita category list`
@@ -280,10 +285,6 @@ Notes:
 - `infinita budget status --month <YYYY-MM>`
 - `infinita report daily --date <YYYY-MM-DD>`
 - `infinita report monthly --month <YYYY-MM>`
-- `infinita settings show`
-- `infinita settings report-timezone --timezone <IANA name>`
-- `infinita settings set-initial-balance --amount <decimal>`
-- `infinita settings reset-initial-balance`
 
 CLI execution behavior:
 - `list` command default pagination: `limit=50`, `offset=0`; max `limit=500`.
@@ -304,10 +305,8 @@ The embedded HTTP server exposes REST endpoints for all business operations. Com
 | `/budgets/status` | GET | Get budget status for a month |
 | `/reports/daily` | GET | Get daily summary |
 | `/reports/monthly` | GET | Get monthly summary |
-| `/settings` | GET | Get current settings |
-| `/settings/report-timezone` | PUT | Update report timezone |
-| `/settings/initial-balance` | PUT | Set initial balance |
-| `/settings/initial-balance` | DELETE | Reset initial balance to 0 |
+| `/initial-balance` | PUT | Set initial balance |
+| `/initial-balance` | DELETE | Reset initial balance to 0 |
 
 Request/Response format:
 - All requests use JSON body (POST/PUT).
@@ -318,7 +317,6 @@ Request/Response format:
 Shared monetary parsing/normalization rules apply to all CLI amount inputs:
 - `add --amount`
 - `budget set --amount`
-- `settings set-initial-balance --amount`
 
 Rules:
 - Input token must be a numeric decimal token (digits, optional single `.`, surrounding spaces trimmed by parser).
@@ -447,7 +445,9 @@ Report field semantics:
 ### Storage Settings Contract
 ```json
 {
-  "storageMode": "local",
+  "mode": "local",
+  "serverUrl": "",
+  "apiKey": "****",
   "reportTimezone": "Asia/Jakarta"
 }
 ```
@@ -461,16 +461,14 @@ Report field semantics:
 }
 ```
 
-### Initial Balance Set Contract (CLI Input)
+### Initial Balance Set Contract (API Input)
 ```json
 {
-  "amount": "500000.00"
+  "initialBalanceMinor": 5000000
 }
 ```
 
-Normalization and validation:
-- `amount` must follow shared monetary normalization rules and be converted to `initialBalanceMinor`.
-- Initial balance allows zero (`>= 0`) and rejects negative values.
+Note: Initial balance CLI commands were removed in recent refactoring. Initial balance can still be set via API at `/initial-balance`.
 
 ## Dependencies
 - Golang toolchain (`go 1.22` or newer for ServeMux method-based routing).

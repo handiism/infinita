@@ -1,8 +1,19 @@
 # Local Data
 
 ## Storage Mode
-- Infinita MVP uses **local-only** storage.
-- Remote storage modes are not supported.
+- Infinita MVP supports **local** and **remote** storage modes.
+- Use `--mode` flag to specify mode (local or remote).
+- Use `--server-url` flag to specify server URL for remote mode.
+- Use `--api-key` flag to set API key for remote mode authentication.
+- Local mode stores all data on the user's device.
+- Remote mode connects to a remote server at the specified URL.
+
+## API Key Authentication
+- API key is stored in `settings.yaml` as `api_key`.
+- Required for remote mode; optional for local mode.
+- Server validates `X-API-Key` header on all endpoints except `/health` when api_key is configured.
+- API key is masked in API responses (shown as `****`).
+- Never commit api_key to version control.
 
 ## Default Data Path
 - Override path for tests or custom setups with `INFINITA_DATA_DIR`.

@@ -91,11 +91,6 @@ type MonthlyReportResponse struct {
 	TopCategories       []TopCategoryResponse `json:"topCategories"`
 }
 
-type SettingsResponse struct {
-	StorageMode    string `json:"storageMode"`
-	ReportTimezone string `json:"reportTimezone"`
-}
-
 type InitialBalanceResponse struct {
 	InitialBalanceMinor int64  `json:"initialBalanceMinor"`
 	CurrencyCode        string `json:"currencyCode"`
@@ -103,12 +98,7 @@ type InitialBalanceResponse struct {
 }
 
 type SetInitialBalanceRequest struct {
-	InitialBalanceMinor int64  `json:"initialBalanceMinor"`
-	CurrencyCode        string `json:"currencyCode"`
-}
-
-type SetReportTimezoneRequest struct {
-	ReportTimezone string `json:"reportTimezone"`
+	InitialBalanceMinor int64 `json:"initialBalanceMinor"`
 }
 
 type HealthResponse struct {

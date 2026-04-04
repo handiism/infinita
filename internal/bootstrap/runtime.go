@@ -6,8 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/handiism/infinita/internal/application/port/output"
 	"github.com/handiism/infinita/internal/application/usecase"
+	"github.com/handiism/infinita/internal/domain/entity"
 	domainerror "github.com/handiism/infinita/internal/domain/error"
 	"github.com/handiism/infinita/internal/infrastructure/database/sqlite"
 	"github.com/handiism/infinita/internal/infrastructure/database/sqlite/sqlc"
@@ -29,8 +29,9 @@ type DBCloser interface {
 
 // Runtime holds the server and its resources.
 type Runtime struct {
-	Server *transportserver.Server
-	closer DBCloser
+	Server   *transportserver.Server
+	Settings *infinitasettings.SettingsRepository
+	closer   DBCloser
 }
 
 // Bootstrap holds the resolved paths and runtime for a running application.
@@ -97,7 +98,13 @@ func NewRuntime(ctx context.Context, dataDir string, settingsFile string, isDefa
 
 	repos := wireRepositories(queries, settingsFile, isDefaultConfig)
 
-	if err := enforceLocalOnly(ctx, repos.Settings); err != nil {
+	settings, err := repos.Settings.GetSettings(ctx)
+	if err != nil {
+		_ = db.Close()
+		return nil, err
+	}
+
+	if err := validateStorageMode(settings); err != nil {
 		_ = db.Close()
 		return nil, err
 	}
@@ -110,11 +117,13 @@ func NewRuntime(ctx context.Context, dataDir string, settingsFile string, isDefa
 		usecases.Budget,
 		usecases.Report,
 		usecases.Settings,
+		settings.APIKey,
 	)
 
 	return &Runtime{
-		Server: server,
-		closer: db,
+		Server:   server,
+		Settings: repos.Settings,
+		closer:   db,
 	}, nil
 }
 
@@ -176,13 +185,15 @@ func wireUseCases(repos *repositories) *useCases {
 	}
 }
 
-func enforceLocalOnly(ctx context.Context, settingsRepo output.SettingsRepository) error {
-	settings, err := settingsRepo.GetSettings(ctx)
-	if err != nil {
-		return err
+func validateStorageMode(settings entity.Settings) error {
+	if settings.Mode != "local" && settings.Mode != "remote" {
+		return domainerror.ErrInvalidStorageMode.WithField("mode")
 	}
-	if settings.StorageMode != "local" {
-		return domainerror.ErrInvalidStorageMode.WithField("storage_mode").WithHint(fmt.Sprintf("unsupported configured mode '%s'; storage mode must remain local in MVP", settings.StorageMode))
+	if settings.Mode == "remote" && settings.ServerURL == "" {
+		return domainerror.ErrInvalidConfig.WithField("server_url").WithHint("server_url is required for remote mode")
+	}
+	if settings.Mode == "remote" && settings.APIKey == "" {
+		return domainerror.ErrMissingAPIKey.WithField("api_key").WithHint("api_key is required for remote mode")
 	}
 	return nil
 }

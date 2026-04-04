@@ -25,7 +25,7 @@ This matters now because the MVP needs a simple, private, English-first workflow
 ## Goals
 - Enable fast daily transaction logging through a CLI-first MVP.
 - Help users understand spending through categories, budgets, and simple summaries.
-- Keep MVP storage local-only on user device with no telemetry by default.
+- Keep MVP storage local or remote on user device with no telemetry by default, with API key security for remote mode.
 - Provide a clear English-only CLI experience with consistent terminology.
 
 ## Non-Goals
@@ -51,7 +51,7 @@ This matters now because the MVP needs a simple, private, English-first workflow
 - `PRD-FR-013`: User financial data is stored locally on the user device in MVP.
 - `PRD-FR-014`: The MVP does not require bank integration.
 - `PRD-FR-015`: Users can set an optional initial balance, reset it back to `0` when needed, and the active value is used as the starting point for cumulative closing-balance calculations shown in summaries.
-- `PRD-FR-016`: CLI settings must clearly show that active storage mode in MVP is local.
+- `PRD-FR-016`: CLI settings must clearly show that active storage mode in MVP is local or remote, with server_url and api_key required for remote mode.
 - `PRD-FR-017`: The system must provide an embedded HTTP server that auto-starts and auto-stops with the CLI process.
 - `PRD-FR-018`: The CLI must communicate with business logic exclusively through the embedded server REST API.
 
@@ -73,7 +73,7 @@ This matters now because the MVP needs a simple, private, English-first workflow
 - At least 40% of users who create budgets use the budgeting feature at least once per week.
 - At least 99% of MVP command execution scenarios covering core CLI flows complete without runtime errors across at least 1,000 executions.
 - New transaction entry time is 15 seconds or less for familiar users.
-- 100% of users use local-only storage in MVP.
+- 100% of users use local or remote storage in MVP.
 
 ## Acceptance Criteria
 - [ ] Given valid input, when the user runs an example transaction-add command, then the transaction is saved and confirmation is shown.
@@ -86,7 +86,7 @@ This matters now because the MVP needs a simple, private, English-first workflow
 - [ ] Given invalid transaction input, when the user submits an amount less than or equal to 0 or with more than 2 fractional digits, then the system rejects the input and shows a validation error.
 - [ ] Given first-time setup or manual initialization, when the user provides an initial balance value, then the system stores it and uses it as the starting point for closing-balance calculations in summaries; when omitted, the system defaults initial balance to 0.
 - [ ] Given an existing initial balance, when the user explicitly resets it, then the stored value becomes 0 and subsequent closing-balance calculations use 0 until another value is set.
-- [ ] Given storage settings in MVP, when the user checks storage configuration, then storage mode is shown as local and data is stored only on-device.
+- [ ] Given storage settings in MVP, when the user checks storage configuration, then storage mode is shown as local or remote, and for remote mode the server URL and API key status are displayed.
 
 ## Risks & Dependencies
 ### Risks
@@ -116,7 +116,7 @@ This matters now because the MVP needs a simple, private, English-first workflow
 - Monthly budgeting per category
 - Basic daily and monthly cashflow summaries
 - English-only command and output experience
-- Local-only storage in MVP
+- Local and remote storage in MVP
 - Optional initial balance setup
 - Embedded HTTP server (auto-managed by CLI)
 - REST API for all business operations (OpenAPI spec)

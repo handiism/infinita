@@ -92,17 +92,8 @@ func (s stubReportUseCase) Monthly(ctx context.Context, month string) (entity.Mo
 }
 
 type stubSettingsUseCase struct {
-	showFn                func(context.Context) (entity.Settings, error)
 	setInitialBalanceFn   func(context.Context, int64) (entity.InitialBalance, error)
 	resetInitialBalanceFn func(context.Context) error
-	setReportTimezoneFn   func(context.Context, string) error
-}
-
-func (s stubSettingsUseCase) Show(ctx context.Context) (entity.Settings, error) {
-	if s.showFn != nil {
-		return s.showFn(ctx)
-	}
-	return entity.Settings{}, nil
 }
 
 func (s stubSettingsUseCase) SetInitialBalance(ctx context.Context, amount int64) (entity.InitialBalance, error) {
@@ -119,15 +110,8 @@ func (s stubSettingsUseCase) ResetInitialBalance(ctx context.Context) error {
 	return nil
 }
 
-func (s stubSettingsUseCase) SetReportTimezone(ctx context.Context, timezone string) error {
-	if s.setReportTimezoneFn != nil {
-		return s.setReportTimezoneFn(ctx, timezone)
-	}
-	return nil
-}
-
 func TestHelpers(t *testing.T) {
-	app := NewApp(nil, nil, nil, nil, nil, "settings.yaml", &bytes.Buffer{}, &bytes.Buffer{})
+	app := NewApp(nil, nil, nil, nil, "settings.yaml", &bytes.Buffer{}, &bytes.Buffer{})
 
 	// Create a minimal subcommand for testing requiredString
 	subCmd := &cobra.Command{
@@ -200,7 +184,6 @@ func TestAddCommandSuccess(t *testing.T) {
 		stubCategoryUseCase{},
 		stubBudgetUseCase{},
 		stubReportUseCase{},
-		stubSettingsUseCase{},
 	)
 
 	err := runTestCommand(app.addCommand(), stdout, stderr, []string{"add", "--type", "expense", "--amount", "123.45", "--category", "Food", "--date", "2024-01-15", "--description", "lunch"})
@@ -228,7 +211,6 @@ func TestListCommandSuccess(t *testing.T) {
 		stubCategoryUseCase{},
 		stubBudgetUseCase{},
 		stubReportUseCase{},
-		stubSettingsUseCase{},
 	)
 
 	err := runTestCommand(app.listCommand(), stdout, stderr, []string{"list", "--category", "Food", "--limit", "10", "--offset", "5"})
@@ -282,24 +264,6 @@ func TestCategoryBudgetReportAndSettingsCommands(t *testing.T) {
 				return entity.MonthlySummary{Period: month, IncomeTotalMinor: 100000, ExpenseTotalMinor: 12345, NetBalanceMinor: 87655, ClosingBalanceMinor: 120000, TopCategories: []entity.TopSpendingCategory{{Category: "Food", AmountMinor: 12345}}}, nil
 			},
 		},
-		stubSettingsUseCase{
-			showFn: func(context.Context) (entity.Settings, error) {
-				return entity.Settings{StorageMode: "local", ReportTimezone: "Asia/Jakarta"}, nil
-			},
-			setInitialBalanceFn: func(_ context.Context, amount int64) (entity.InitialBalance, error) {
-				if amount != 50000 {
-					t.Fatalf("unexpected initial balance amount: %d", amount)
-				}
-				return entity.InitialBalance{}, nil
-			},
-			resetInitialBalanceFn: func(context.Context) error { return nil },
-			setReportTimezoneFn: func(_ context.Context, timezone string) error {
-				if timezone != "UTC" {
-					t.Fatalf("unexpected timezone: %q", timezone)
-				}
-				return nil
-			},
-		},
 	)
 
 	commands := []struct {
@@ -314,10 +278,6 @@ func TestCategoryBudgetReportAndSettingsCommands(t *testing.T) {
 		{command: app.budgetCommand().Commands()[1], parentName: "budget", args: []string{"budget", "status", "--month", "2024-01"}, wantContain: "Food: limit=40000, spent=12345, remaining=27655, over_limit=false"},
 		{command: app.reportCommand().Commands()[0], parentName: "report", args: []string{"report", "daily", "--date", "2024-01-15"}, wantContain: "Daily report 2024-01-15: income=50000 expense=12345 net=37655"},
 		{command: app.reportCommand().Commands()[1], parentName: "report", args: []string{"report", "monthly", "--month", "2024-01"}, wantContain: "Monthly report 2024-01: income=100000 expense=12345 net=87655 closing=120000"},
-		{command: app.settingsCommand().Commands()[0], parentName: "settings", args: []string{"settings", "show"}, wantContain: "Storage mode:  local"},
-		{command: app.settingsCommand().Commands()[1], parentName: "settings", args: []string{"settings", "set-initial-balance", "--amount", "500.00"}, wantContain: "Initial balance updated."},
-		{command: app.settingsCommand().Commands()[2], parentName: "settings", args: []string{"settings", "reset-initial-balance"}, wantContain: "Initial balance reset."},
-		{command: app.settingsCommand().Commands()[3], parentName: "settings", args: []string{"settings", "report-timezone", "--timezone", "UTC"}, wantContain: "Report timezone updated."},
 	}
 
 	for _, tc := range commands {
@@ -332,10 +292,10 @@ func TestCategoryBudgetReportAndSettingsCommands(t *testing.T) {
 	}
 }
 
-func newTestApp(txn stubTransactionUseCase, category stubCategoryUseCase, budget stubBudgetUseCase, report stubReportUseCase, settings stubSettingsUseCase) (*App, *bytes.Buffer, *bytes.Buffer) {
+func newTestApp(txn stubTransactionUseCase, category stubCategoryUseCase, budget stubBudgetUseCase, report stubReportUseCase) (*App, *bytes.Buffer, *bytes.Buffer) {
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
-	return NewApp(txn, category, budget, report, settings, "settings.yaml", stdout, stderr), stdout, stderr
+	return NewApp(txn, category, budget, report, "settings.yaml", stdout, stderr), stdout, stderr
 }
 
 func runTestCommand(cmd *cobra.Command, stdout, stderr *bytes.Buffer, args []string) error {

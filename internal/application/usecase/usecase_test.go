@@ -13,18 +13,6 @@ import (
 	"github.com/handiism/infinita/internal/testutil/assertdomain"
 )
 
-func TestSettingsUseCase_ShowReturnsRepositoryValues(t *testing.T) {
-	repo := &fakeSettingsRepository{settings: entity.Settings{
-		StorageMode:    "local",
-		ReportTimezone: "Asia/Jakarta",
-	}}
-	uc := usecase.NewSettingsUseCase(repo, &fakeInitialBalanceRepository{})
-
-	got, err := uc.Show(context.Background())
-	require.NoError(t, err)
-	require.Equal(t, repo.settings, got)
-}
-
 func TestSettingsUseCase_SetInitialBalanceValidatesAmount(t *testing.T) {
 	repo := &fakeInitialBalanceRepository{initial: entity.InitialBalance{
 		InitialBalanceMinor: 10,
@@ -262,7 +250,7 @@ func (f *fakeSettingsRepository) GetSettings(context.Context) (entity.Settings, 
 	return f.settings, nil
 }
 
-func (*fakeSettingsRepository) SetStorageMode(context.Context, string) error    { return nil }
+func (*fakeSettingsRepository) SetMode(context.Context, string) error           { return nil }
 func (*fakeSettingsRepository) SetReportTimezone(context.Context, string) error { return nil }
 
 type fakeInitialBalanceRepository struct {

@@ -13,6 +13,12 @@ servers:
         description: Dynamically assigned available port
 
 components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: Required when API key is configured on the server. Not required for /health endpoint.
   schemas:
     ErrorObject:
       type: object
@@ -280,12 +286,23 @@ components:
     Settings:
       type: object
       required:
-        - storageMode
+        - mode
         - reportTimezone
       properties:
-        storageMode:
+        mode:
           type: string
+          enum:
+            - local
+            - remote
           example: local
+        serverUrl:
+          type: string
+          description: Server URL for remote mode. Required when mode is remote.
+          example: http://localhost:8080
+        apiKey:
+          type: string
+          description: API key for remote mode authentication. Masked in responses as "****" when set. Required when mode is remote.
+          example: "****"
         reportTimezone:
           type: string
           description: IANA timezone name.
@@ -910,38 +927,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /settings:
-    get:
-      operationId: getSettings
-      summary: Get current settings
-      description: Returns the current application settings.
-      responses:
-        "200":
-          description: Current settings.
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: "#/components/schemas/SuccessResponse"
-                  - type: object
-                    properties:
-                      data:
-                        $ref: "#/components/schemas/Settings"
-              example:
-                status: success
-                data:
-                  storageMode: local
-                  analyticsOptIn: false
-                  reportTimezone: Asia/Jakarta
-                meta: null
-        "500":
-          description: Internal server error.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
-  /settings/initial-balance:
+  /initial-balance:
     put:
       operationId: setInitialBalance
       summary: Set initial balance
@@ -954,19 +940,14 @@ paths:
               type: object
               required:
                 - initialBalanceMinor
-                - currencyCode
               properties:
                 initialBalanceMinor:
                   type: integer
                   format: int64
                   description: Initial balance in minor units. Must be greater than or equal to 0.
                   example: 5000000
-                currencyCode:
-                  type: string
-                  example: IDR
             example:
               initialBalanceMinor: 5000000
-              currencyCode: IDR
       responses:
         "200":
           description: Initial balance updated.
@@ -1029,40 +1010,4 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /settings/report-timezone:
-    put:
-      operationId: setReportTimezone
-      summary: Update report timezone
-      description: Sets the timezone used for daily and monthly report date boundaries.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - reportTimezone
-              properties:
-                reportTimezone:
-                  type: string
-                  description: IANA timezone name.
-                  example: Asia/Jakarta
-            example:
-              reportTimezone: Asia/Jakarta
-      responses:
-        "200":
-          description: Report timezone updated.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SuccessResponse"
-              example:
-                status: success
-                data: null
-                meta: null
-        "500":
-          description: Internal server error.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
+

@@ -45,7 +45,6 @@ type App struct {
 	categoryUseCase input.CategoryUseCase
 	budgetUseCase   input.BudgetUseCase
 	reportUseCase   input.ReportUseCase
-	settingsUseCase input.SettingsUseCase
 	configPath      string
 	stdout          io.Writer
 	stderr          io.Writer
@@ -57,7 +56,6 @@ func NewApp(
 	categoryUseCase input.CategoryUseCase,
 	budgetUseCase input.BudgetUseCase,
 	reportUseCase input.ReportUseCase,
-	settingsUseCase input.SettingsUseCase,
 	configPath string,
 	stdout io.Writer,
 	stderr io.Writer,
@@ -67,7 +65,6 @@ func NewApp(
 		categoryUseCase: categoryUseCase,
 		budgetUseCase:   budgetUseCase,
 		reportUseCase:   reportUseCase,
-		settingsUseCase: settingsUseCase,
 		configPath:      configPath,
 		stdout:          stdout,
 		stderr:          stderr,
@@ -98,6 +95,9 @@ func (a *App) Command() *cobra.Command {
 	}
 
 	rootCmd.Flags().String("config", "", "Path to settings YAML file")
+	rootCmd.PersistentFlags().String("mode", "", "Storage mode (local or remote)")
+	rootCmd.PersistentFlags().String("server-url", "", "Server URL for remote mode")
+	rootCmd.PersistentFlags().String("api-key", "", "API key for remote mode")
 
 	rootCmd.AddCommand(
 		a.addCommand(),
@@ -105,7 +105,6 @@ func (a *App) Command() *cobra.Command {
 		a.categoryCommand(),
 		a.budgetCommand(),
 		a.reportCommand(),
-		a.settingsCommand(),
 	)
 
 	// Set custom help template to ensure help appears last
@@ -358,88 +357,6 @@ func (a *App) reportCommand() *cobra.Command {
 	monthlyCmd.Flags().String("month", "", "Month (YYYY-MM)")
 
 	cmd.AddCommand(dailyCmd, monthlyCmd)
-
-	return cmd
-}
-
-func (a *App) settingsCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "settings",
-		Short: "Manage settings",
-		Long:  "Manage settings",
-	}
-	cmd.SetHelpTemplate(helpTemplate)
-
-	showCmd := &cobra.Command{
-		Use:   "show",
-		Short: "Show current settings",
-		Long:  "Show current settings",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			settings, err := a.settingsUseCase.Show(cmd.Context())
-			if err != nil {
-				return cliExitError(err, exitCode(err))
-			}
-			_, _ = fmt.Fprintf(a.stdout, "Config file:   %s\n", a.configPath)
-			_, _ = fmt.Fprintf(a.stdout, "Storage mode:  %s\n", settings.StorageMode)
-			_, _ = fmt.Fprintf(a.stdout, "Report timezone: %s\n", settings.ReportTimezone)
-			return nil
-		},
-	}
-
-	setInitialBalanceCmd := &cobra.Command{
-		Use:   "set-initial-balance",
-		Short: "Set initial balance",
-		Long:  "Set initial balance",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			amountText, err := requiredString(cmd, "amount")
-			if err != nil {
-				return cliExitError(err, 2)
-			}
-			amount, err := validation.ParseAmount(amountText, true)
-			if err != nil {
-				return cliExitError(err, 2)
-			}
-			if _, err := a.settingsUseCase.SetInitialBalance(cmd.Context(), amount); err != nil {
-				return cliExitError(err, exitCode(err))
-			}
-			_, _ = fmt.Fprintln(a.stdout, "Initial balance updated.")
-			return nil
-		},
-	}
-	setInitialBalanceCmd.Flags().String("amount", "", "Amount")
-
-	resetInitialBalanceCmd := &cobra.Command{
-		Use:   "reset-initial-balance",
-		Short: "Reset initial balance to zero",
-		Long:  "Reset initial balance to zero",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := a.settingsUseCase.ResetInitialBalance(cmd.Context()); err != nil {
-				return cliExitError(err, exitCode(err))
-			}
-			_, _ = fmt.Fprintln(a.stdout, "Initial balance reset.")
-			return nil
-		},
-	}
-
-	reportTimezoneCmd := &cobra.Command{
-		Use:   "report-timezone",
-		Short: "Update report timezone",
-		Long:  "Update report timezone",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			timezone, err := requiredString(cmd, "timezone")
-			if err != nil {
-				return cliExitError(err, 2)
-			}
-			if err := a.settingsUseCase.SetReportTimezone(cmd.Context(), timezone); err != nil {
-				return cliExitError(err, exitCode(err))
-			}
-			_, _ = fmt.Fprintln(a.stdout, "Report timezone updated.")
-			return nil
-		},
-	}
-	reportTimezoneCmd.Flags().String("timezone", "", "IANA timezone name")
-
-	cmd.AddCommand(showCmd, setInitialBalanceCmd, resetInitialBalanceCmd, reportTimezoneCmd)
 
 	return cmd
 }

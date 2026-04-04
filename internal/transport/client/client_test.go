@@ -41,7 +41,7 @@ func TestClientListTransactionsDecodesJSendDataAndMeta(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := New(server.URL)
+	client := New(server.URL, "")
 	result, err := client.ListTransactions(context.Background(), nil, 10, 5)
 
 	require.NoError(t, err)
@@ -68,7 +68,7 @@ func TestClientListDecodesJSendArrayData(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := New(server.URL)
+	client := New(server.URL, "")
 	result, err := client.List(context.Background())
 
 	require.NoError(t, err)
@@ -98,7 +98,7 @@ func TestClientStatusDecodesJSendArrayData(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := New(server.URL)
+	client := New(server.URL, "")
 	result, err := client.Status(context.Background(), "2024-01")
 
 	require.NoError(t, err)

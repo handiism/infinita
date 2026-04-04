@@ -13,13 +13,17 @@ import (
 )
 
 var defaults = yamlSettings{
-	StorageMode:    "local",
+	Mode:           "local",
+	ServerURL:      "",
 	ReportTimezone: "Asia/Jakarta",
+	APIKey:         "",
 }
 
 type yamlSettings struct {
-	StorageMode    string `yaml:"storage_mode"`
+	Mode           string `yaml:"mode"`
+	ServerURL      string `yaml:"server_url"`
 	ReportTimezone string `yaml:"report_timezone"`
+	APIKey         string `yaml:"api_key"`
 }
 
 // SettingsRepository implements output.SettingsRepository using a YAML file.
@@ -41,29 +45,22 @@ func (r *SettingsRepository) GetSettings(ctx context.Context) (entity.Settings, 
 		return entity.Settings{}, err
 	}
 	return entity.Settings{
-		StorageMode:    s.StorageMode,
+		Mode:           s.Mode,
+		ServerURL:      s.ServerURL,
 		ReportTimezone: s.ReportTimezone,
+		APIKey:         s.APIKey,
 	}, nil
 }
 
-func (r *SettingsRepository) SetStorageMode(_ context.Context, mode string) error {
-	if mode != "local" {
-		return domainerror.ErrInvalidStorageMode.WithField("storage_mode").WithHint("storage mode must remain 'local' in MVP")
+func (r *SettingsRepository) SetMode(_ context.Context, mode string) error {
+	if mode != "local" && mode != "remote" {
+		return domainerror.ErrInvalidStorageMode.WithField("mode")
 	}
 	s, err := r.read()
 	if err != nil {
 		return err
 	}
-	s.StorageMode = mode
-	return r.write(s)
-}
-
-func (r *SettingsRepository) SetReportTimezone(_ context.Context, timezone string) error {
-	s, err := r.read()
-	if err != nil {
-		return err
-	}
-	s.ReportTimezone = timezone
+	s.Mode = mode
 	return r.write(s)
 }
 
@@ -113,11 +110,17 @@ func (r *SettingsRepository) write(s yamlSettings) error {
 }
 
 func validate(s yamlSettings) error {
-	if s.StorageMode == "" {
-		return domainerror.ErrInvalidConfig.WithField("storage_mode").WithHint("storage_mode is required")
+	if s.Mode == "" {
+		return domainerror.ErrInvalidConfig.WithField("mode").WithHint("mode is required")
 	}
-	if s.StorageMode != "local" {
-		return domainerror.ErrInvalidStorageMode.WithField("storage_mode").WithHint("storage mode must remain 'local' in MVP")
+	if s.Mode != "local" && s.Mode != "remote" {
+		return domainerror.ErrInvalidStorageMode.WithField("mode")
+	}
+	if s.Mode == "remote" && s.ServerURL == "" {
+		return domainerror.ErrInvalidConfig.WithField("server_url").WithHint("server_url is required for remote mode")
+	}
+	if s.Mode == "remote" && s.APIKey == "" {
+		return domainerror.ErrMissingAPIKey.WithField("api_key").WithHint("api_key is required for remote mode")
 	}
 
 	if s.ReportTimezone == "" {

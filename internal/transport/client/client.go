@@ -20,13 +20,15 @@ import (
 // Client is an HTTP client for the embedded server.
 type Client struct {
 	baseURL    string
+	apiKey     string
 	httpClient *http.Client
 }
 
-// New creates a new Client targeting the given base URL.
-func New(baseURL string) *Client {
+// New creates a new Client targeting the given base URL with optional API key.
+func New(baseURL string, apiKey string) *Client {
 	return &Client{
 		baseURL: baseURL,
+		apiKey:  apiKey,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
@@ -50,6 +52,10 @@ func (c *Client) performRequest(ctx context.Context, method, path string, body i
 
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
+	}
+
+	if c.apiKey != "" {
+		req.Header.Set("X-API-Key", c.apiKey)
 	}
 
 	resp, err := c.httpClient.Do(req)
@@ -375,24 +381,12 @@ func (c *Client) Monthly(ctx context.Context, month string) (entity.MonthlySumma
 	}, nil
 }
 
-func (c *Client) Show(ctx context.Context) (entity.Settings, error) {
-	var resp SettingsResponse
-	if err := c.get(ctx, "/settings", nil, &resp); err != nil {
-		return entity.Settings{}, err
-	}
-	return entity.Settings{
-		StorageMode:    resp.StorageMode,
-		ReportTimezone: resp.ReportTimezone,
-	}, nil
-}
-
 func (c *Client) SetInitialBalance(ctx context.Context, amount int64) (entity.InitialBalance, error) {
 	req := SetInitialBalanceRequest{
 		InitialBalanceMinor: amount,
-		CurrencyCode:        valueobject.DefaultCurrencyCode,
 	}
 	var resp InitialBalanceResponse
-	if err := c.put(ctx, "/settings/initial-balance", req, &resp); err != nil {
+	if err := c.put(ctx, "/initial-balance", req, &resp); err != nil {
 		return entity.InitialBalance{}, err
 	}
 	return entity.InitialBalance{
@@ -403,14 +397,7 @@ func (c *Client) SetInitialBalance(ctx context.Context, amount int64) (entity.In
 }
 
 func (c *Client) ResetInitialBalance(ctx context.Context) error {
-	return c.delete(ctx, "/settings/initial-balance", nil)
-}
-
-func (c *Client) SetReportTimezone(ctx context.Context, timezone string) error {
-	req := SetReportTimezoneRequest{
-		ReportTimezone: timezone,
-	}
-	return c.put(ctx, "/settings/report-timezone", req, nil)
+	return c.delete(ctx, "/initial-balance", nil)
 }
 
 var (
@@ -418,5 +405,4 @@ var (
 	_ input.CategoryUseCase    = (*Client)(nil)
 	_ input.BudgetUseCase      = (*Client)(nil)
 	_ input.ReportUseCase      = (*Client)(nil)
-	_ input.SettingsUseCase    = (*Client)(nil)
 )

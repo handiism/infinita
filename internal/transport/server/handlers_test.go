@@ -175,10 +175,6 @@ type stubSettingsUseCase struct {
 	setInitialBalanceFn func(context.Context, int64) (entity.InitialBalance, error)
 }
 
-func (stubSettingsUseCase) Show(context.Context) (entity.Settings, error) {
-	return entity.Settings{}, nil
-}
-
 func (s stubSettingsUseCase) SetInitialBalance(ctx context.Context, amount int64) (entity.InitialBalance, error) {
 	if s.setInitialBalanceFn != nil {
 		return s.setInitialBalanceFn(ctx, amount)
@@ -187,10 +183,6 @@ func (s stubSettingsUseCase) SetInitialBalance(ctx context.Context, amount int64
 }
 
 func (stubSettingsUseCase) ResetInitialBalance(context.Context) error {
-	return nil
-}
-
-func (stubSettingsUseCase) SetReportTimezone(context.Context, string) error {
 	return nil
 }
 
@@ -277,24 +269,6 @@ func TestSetInitialBalanceReturnsPersistedPayload(t *testing.T) {
 	require.Equal(t, int64(100), resp.Data.InitialBalanceMinor)
 	require.Equal(t, "IDR", resp.Data.CurrencyCode)
 	require.Equal(t, "2026-03-29T10:00:00Z", resp.Data.InitializedAt)
-}
-
-func TestSetInitialBalanceRejectsUnsupportedCurrency(t *testing.T) {
-	h := NewHandler(
-		stubTransactionUseCase{},
-		stubCategoryUseCase{},
-		stubBudgetUseCase{},
-		stubReportUseCase{},
-		stubSettingsUseCase{},
-	)
-
-	req := httptest.NewRequest(http.MethodPut, "/settings/initial-balance", strings.NewReader(`{"initialBalanceMinor":100,"currencyCode":"USD"}`))
-	rec := httptest.NewRecorder()
-
-	h.SetInitialBalance(rec, req)
-
-	require.Equal(t, http.StatusBadRequest, rec.Code)
-	require.Contains(t, rec.Body.String(), domainerror.ErrInvalidCurrency.Code)
 }
 
 func TestListTransactionsRejectsLimitAboveMaximum(t *testing.T) {

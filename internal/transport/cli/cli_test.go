@@ -49,18 +49,6 @@ func TestCLIIntegrationCommands(t *testing.T) {
 	require.Equal(t, 0, code)
 	require.Contains(t, out, "Monthly report 2024-01")
 
-	out, code = runCLI(t, bin, dataDir, "settings", "show")
-	require.Equal(t, 0, code)
-	require.Contains(t, out, "Storage mode")
-
-	out, code = runCLI(t, bin, dataDir, "settings", "set-initial-balance", "--amount", "500.00")
-	require.Equal(t, 0, code)
-	require.Contains(t, out, "Initial balance updated")
-
-	out, code = runCLI(t, bin, dataDir, "settings", "reset-initial-balance")
-	require.Equal(t, 0, code)
-	require.Contains(t, out, "Initial balance reset")
-
 	dbPath := filepath.Join(dataDir, "infinita.db")
 	db, err := sql.Open("sqlite3", dbPath)
 	require.NoError(t, err)
@@ -74,10 +62,6 @@ func TestCLIIntegrationCommands(t *testing.T) {
 	err = db.QueryRow(`SELECT initial_balance_minor FROM initial_balance WHERE id = 1`).Scan(&initialBalanceMinor)
 	require.NoError(t, err)
 	require.Zero(t, initialBalanceMinor)
-
-	out, code = runCLI(t, bin, dataDir, "settings", "report-timezone", "--timezone", "UTC")
-	require.Equal(t, 0, code)
-	require.Contains(t, out, "Report timezone updated")
 
 	out, code = runCLI(t, bin, dataDir, "add", "--type", "expense", "--amount", "10.00", "--category", "Food", "--date", "2024-01-16")
 	require.Equal(t, 0, code)
@@ -98,10 +82,6 @@ func TestCLIValidationExitCode(t *testing.T) {
 	out, code := runCLI(t, bin, dataDir, "unknown")
 	require.Equal(t, 2, code)
 	require.Contains(t, out, "unknown command")
-
-	out, code = runCLI(t, bin, dataDir, "settings", "report-timezone", "--timezone", "Mars/Base")
-	require.Equal(t, 2, code)
-	require.Contains(t, out, "INVALID_TIMEZONE")
 }
 
 func TestCLIRuntimeExitCode(t *testing.T) {
@@ -121,13 +101,69 @@ func TestCLIRejectsNonLocalStorageMode(t *testing.T) {
 	_, code := runCLI(t, bin, dataDir, "list")
 	require.Equal(t, 0, code)
 
+	// "invalid" storage mode is rejected
 	settingsPath := filepath.Join(dataDir, "settings.yaml")
-	err := os.WriteFile(settingsPath, []byte("storage_mode: remote\nreport_timezone: Asia/Jakarta\n"), 0o600)
+	err := os.WriteFile(settingsPath, []byte("mode: invalid\nreport_timezone: Asia/Jakarta\nserver_url: \"\"\n"), 0o600)
 	require.NoError(t, err)
 
 	out, code := runCLI(t, bin, dataDir, "list")
 	require.Equal(t, 3, code)
-	require.Contains(t, out, "STORAGE_MODE_UNAVAILABLE")
+	require.Contains(t, out, "MODE_UNAVAILABLE")
+}
+
+func TestCLISelfHostedModeWithServerURL(t *testing.T) {
+	bin := buildCLIBinary(t)
+	dataDir := filepath.Join(t.TempDir(), "data")
+
+	// First run list to create default settings
+	_, code := runCLI(t, bin, dataDir, "list")
+	require.Equal(t, 0, code)
+
+	// Create settings with remote mode but no server_url - should fail
+	settingsPath := filepath.Join(dataDir, "settings.yaml")
+	err := os.WriteFile(settingsPath, []byte("mode: remote\nreport_timezone: Asia/Jakarta\nserver_url: \"\"\napi_key: \"secret\"\n"), 0o600)
+	require.NoError(t, err)
+
+	out, code := runCLI(t, bin, dataDir, "list")
+	require.Equal(t, 3, code)
+	require.Contains(t, out, "INVALID_CONFIG")
+}
+
+func TestCLIRemoteModeRequiresAPIKey(t *testing.T) {
+	bin := buildCLIBinary(t)
+	dataDir := filepath.Join(t.TempDir(), "data")
+
+	// First run list to create default settings
+	_, code := runCLI(t, bin, dataDir, "list")
+	require.Equal(t, 0, code)
+
+	// Create settings with remote mode but no api_key - should fail
+	settingsPath := filepath.Join(dataDir, "settings.yaml")
+	err := os.WriteFile(settingsPath, []byte("mode: remote\nreport_timezone: Asia/Jakarta\nserver_url: http://localhost:8080\napi_key: \"\"\n"), 0o600)
+	require.NoError(t, err)
+
+	out, code := runCLI(t, bin, dataDir, "list")
+	require.Equal(t, 3, code)
+	require.Contains(t, out, "MISSING_API_KEY")
+}
+
+func TestCLIRemoteModeWithAPIKey(t *testing.T) {
+	bin := buildCLIBinary(t)
+	dataDir := filepath.Join(t.TempDir(), "data")
+
+	// First run list to create default settings
+	_, code := runCLI(t, bin, dataDir, "list")
+	require.Equal(t, 0, code)
+
+	// Create settings with remote mode and api_key - but server doesn't exist, so connection error expected
+	settingsPath := filepath.Join(dataDir, "settings.yaml")
+	err := os.WriteFile(settingsPath, []byte("mode: remote\nreport_timezone: Asia/Jakarta\nserver_url: http://localhost:9999\napi_key: \"secret\"\n"), 0o600)
+	require.NoError(t, err)
+
+	out, code := runCLI(t, bin, dataDir, "list")
+	// Should fail with connection error, not with MISSING_API_KEY
+	require.Equal(t, 3, code)
+	require.NotContains(t, out, "MISSING_API_KEY")
 }
 
 func runCLI(t *testing.T, bin, dataDir string, args ...string) (string, int) {
