@@ -27,7 +27,7 @@ jobs:
         run: go test ./...
 
       - name: Build CLI binary
-        run: go build -o bin/infinita ./cmd/cli
+        run: go build -ldflags "-X github.com/handiism/infinita/internal/version.Version=${{ github.sha }}" -o bin/infinita ./cmd/cli
 
       - name: Install sqlc
         run: go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0

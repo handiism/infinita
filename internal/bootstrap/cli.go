@@ -11,6 +11,7 @@ import (
 	domainerror "github.com/handiism/infinita/internal/domain/error"
 	transportcli "github.com/handiism/infinita/internal/transport/cli"
 	transportclient "github.com/handiism/infinita/internal/transport/client"
+	"github.com/handiism/infinita/internal/version"
 )
 
 // cliFlags holds flags parsed from raw CLI args before cobra initialization.
@@ -56,6 +57,14 @@ func parseCLIFlags(args []string) cliFlags {
 
 // RunCLI starts the embedded server and runs the CLI client.
 func RunCLI(ctx context.Context, args []string, stdout io.Writer, stderr io.Writer) error {
+	// Handle --version early, before any heavy initialization
+	for _, arg := range args {
+		if arg == "--version" || arg == "-v" {
+			fmt.Fprintln(stdout, version.Version)
+			return nil
+		}
+	}
+
 	flags := parseCLIFlags(args)
 
 	b, err := NewBootstrap(ctx, args)

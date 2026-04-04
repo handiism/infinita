@@ -98,6 +98,7 @@ func (a *App) Command() *cobra.Command {
 	rootCmd.PersistentFlags().String("mode", "", "Storage mode (local or remote)")
 	rootCmd.PersistentFlags().String("server-url", "", "Server URL for remote mode")
 	rootCmd.PersistentFlags().String("api-key", "", "API key for remote mode")
+	rootCmd.Flags().BoolP("version", "V", false, "Print version information")
 
 	rootCmd.AddCommand(
 		a.addCommand(),

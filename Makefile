@@ -1,4 +1,6 @@
 BIN := bin/infinita
+VERSION ?= dev
+LDFLAGS := -ldflags "-X github.com/handiism/infinita/internal/version.Version=$(VERSION)"
 M := migrate
 DIR := internal/infrastructure/database/sqlite/migrations
 DB ?= /tmp/infinita-dev.db
@@ -6,7 +8,7 @@ DB ?= /tmp/infinita-dev.db
 .PHONY: build run test cover lint tidy ci mg-create mgu mgd mgd-all mgf mgv sg
 
 build:
-	go build -o $(BIN) ./cmd/cli
+	go build $(LDFLAGS) -o $(BIN) ./cmd/cli
 
 run:
 	go run ./cmd/cli $(ARGS)
